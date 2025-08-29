@@ -9,6 +9,8 @@ import Wallet from './components/Wallet';
 import Transactions from './components/Transactions';
 import Settings from './components/Settings';
 import Login from './components/Login';
+import Register from './components/Register';
+import ForgotPassword from './components/ForgotPassword';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 function AuthedApp() {
@@ -66,6 +68,8 @@ const App: React.FC = () => (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route
           path="/"
           element={
