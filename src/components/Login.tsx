@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const Login: React.FC = () => {
   const { isDark } = useTheme();
   const { login } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,6 +18,7 @@ const Login: React.FC = () => {
       setLoading(true);
       setError(null);
       await login(email, password);
+      navigate('/', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
