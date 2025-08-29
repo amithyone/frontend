@@ -1,166 +1,208 @@
-// API service for communicating with Laravel backend
-const API_BASE_URL = 'http://127.0.0.1:8000';
+// Exact implementation per spec
+export const API_BASE_URL = (import.meta as any)?.env?.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
 
-export interface Service {
+export type ApiStatus = 'success' | 'error';
+
+export interface ApiResponse<T> { status: ApiStatus; data?: T; message?: string }
+
+// Auth
+export interface RegisterBody { name: string; email: string; password: string }
+export interface LoginBody { email: string; password: string }
+export interface AuthUser { id: number; name: string; email: string; wallet?: any; role_id?: number }
+export interface AuthResponse { user: AuthUser; token: string }
+
+// Profile
+export interface ProfileData { id: number; name: string; email: string; wallet: any; role_id: number }
+
+// Transactions
+export type TransactionStatus = 'completed' | 'pending' | 'failed';
+export type TransactionType = 'credit' | 'debit';
+export interface TransactionItem {
   id: number;
-  name: string;
+  type: TransactionType;
+  amount: number;
   description: string;
-  price: number;
-  category: string;
-  is_active?: boolean;
+  status: TransactionStatus;
+  reference?: string;
+  created_at: string;
 }
 
-export interface ApiResponse<T> {
-  status: string;
-  data?: T;
-  message?: string;
+// Wallet (PayVibe)
+export interface InitiateTopUpBody { amount: number; user_id: number }
+export interface InitiateTopUpData {
+  reference: string;
+  account_number: string;
+  bank_name: string; // Wema Bank
+  account_name: string; // Finspa/PAYVIBE
+  amount: number;
+  charge: number;
+  final_amount: number;
+  expiry: number; // seconds
+  transaction_id: number | string;
 }
+export interface VerifyPaymentBody { reference: string }
+export interface VerifyPaymentData { status: 'pending' | 'completed' | 'failed'; amount?: number }
+
+// SMS Services
+export interface SmsServiceItem { id: number; name: string; country: string; price: number; currency: string }
+export interface OrderSmsNumberBody { user_id: number; service: string; country: string }
+export interface OrderSmsNumberData { order_id: string | number; phone: string; cost: number; api_service_id: number | string }
+export interface GetSmsCodeBody { activation_id: string; user_id: number }
+export interface GetSmsCodeData { code?: string; status: 'pending' | 'received' | 'expired' }
+
+// VTU
+export type VtuType = 'airtime' | 'data';
+export interface VtuServiceItem { id: number; name: string; type: VtuType; provider: string; price: number }
+export interface PurchaseVtuBody { service_id: number; phone: string; amount?: number; bundle_code?: string }
+export interface PurchaseVtuData { order_id: string | number; status: string }
+
+// Proxy
+export interface ProxyServiceItem { id: number; name: string; price: number; provider: string }
+export interface PurchaseProxyBody { service_id: number; region: string }
+export interface PurchaseProxyData { order_id: string | number; status: string }
 
 class ApiService {
   private baseUrl: string;
 
-  constructor(baseUrl: string = API_BASE_URL) {
+  constructor(baseUrl: string = 'http://127.0.0.1:8000') {
     this.baseUrl = baseUrl;
   }
 
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<ApiResponse<T>> {
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
+      ...(options.headers as Record<string, string> | undefined),
     };
+
     const token = localStorage.getItem('auth_token');
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const init: RequestInit = { ...options, headers };
+
+    const resp = await fetch(url, init);
+    if (!resp.ok) {
+      // Log non-2xx as errors (but still attempt to return JSON body)
+      console.error(`HTTP ${resp.status} for ${endpoint}`);
     }
-    const defaultOptions: RequestInit = {
-      headers,
-      ...options,
-    };
-
-    try {
-      const response = await fetch(url, defaultOptions);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('API request failed:', error);
-      throw error;
-    }
+    // Throw on network-level errors only (fetch would have thrown). Here we parse JSON regardless
+    const json = (await resp.json()) as ApiResponse<T>;
+    return json;
   }
 
-  // Test API connection
-  async testConnection(): Promise<ApiResponse<any>> {
-    return this.request('/api/test');
-  }
-
-  // Get all services
-  async getServices(): Promise<ApiResponse<Service[]>> {
-    return this.request<Service[]>('/api/services');
-  }
-
-  // Create a new service
-  async createService(serviceData: Omit<Service, 'id'>): Promise<ApiResponse<Service>> {
-    return this.request<Service>('/api/services', {
+  // Auth
+  public async register(body: RegisterBody, init?: RequestInit) {
+    return this.request<ApiResponse<AuthResponse>['data']>('/api/register', {
       method: 'POST',
-      body: JSON.stringify(serviceData),
+      body: JSON.stringify(body),
+      ...init,
     });
   }
 
-  // Update a service
-  async updateService(id: number, serviceData: Partial<Service>): Promise<ApiResponse<Service>> {
-    return this.request<Service>(`/api/services/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(serviceData),
-    });
-  }
-
-  // Delete a service
-  async deleteService(id: number): Promise<ApiResponse<any>> {
-    return this.request(`/api/services/${id}`, {
-      method: 'DELETE',
-    });
-  }
-
-  // PayVibe wallet top-up methods - Updated to use our new endpoints
-  async initiateTopUp(amount: number, userId: number = 27): Promise<ApiResponse<any>> {
-    console.log('Initiating PayVibe top-up:', { amount, userId });
-    
-    const response = await this.request('/payvibe-initiate.php', {
+  public async login(body: LoginBody, init?: RequestInit) {
+    return this.request<AuthResponse>('/api/login', {
       method: 'POST',
-      body: JSON.stringify({ 
-        amount,
-        user_id: userId 
-      }),
+      body: JSON.stringify(body),
+      ...init,
     });
-    
-    console.log('PayVibe response:', response);
-    return response;
   }
 
-  async checkPaymentStatus(reference: string): Promise<ApiResponse<any>> {
-    return this.request('/payvibe-verify.php', {
+  public async logout(init?: RequestInit) {
+    return this.request<undefined>('/api/logout', {
       method: 'POST',
-      body: JSON.stringify({ reference }),
+      ...init,
     });
   }
 
-  async getTopUpHistory(page: number = 1): Promise<ApiResponse<any>> {
-    return this.request(`/api/wallet/history?page=${page}`);
+  // Profile
+  public async getUserProfile(init?: RequestInit) {
+    return this.request<ProfileData>('/api/user', { method: 'GET', ...init });
   }
 
-  // Get user profile and balance
-  async getUserProfile(): Promise<ApiResponse<any>> {
-    return this.request('/api/user');
+  // Transactions
+  public async getUserTransactions(init?: RequestInit) {
+    return this.request<TransactionItem[]>('/api/transactions', { method: 'GET', ...init });
   }
 
-  // Get user transactions
-  async getUserTransactions(): Promise<ApiResponse<any>> {
-    return this.request('/api/transactions');
+  // Wallet
+  public async getWalletStats(init?: RequestInit) {
+    return this.request<{ totalTopUps: number; totalSpent: number }>('/api/wallet/stats', { method: 'GET', ...init });
   }
 
-  // Get user wallet statistics
-  async getWalletStats(): Promise<ApiResponse<any>> {
-    return this.request('/api/wallet/stats');
-  }
-
-  // SMS Service API methods
-  async getSmsServices(): Promise<ApiResponse<any>> {
-    return this.request('/sms-service-api.php?action=getServices');
-  }
-
-  async orderSmsNumber(userId: number, service: string, country: string): Promise<ApiResponse<any>> {
-    return this.request('/sms-service-api.php?action=orderNumber', {
+  public async initiateTopUp(body: InitiateTopUpBody, init?: RequestInit) {
+    return this.request<InitiateTopUpData>('/payvibe-initiate.php', {
       method: 'POST',
-      body: JSON.stringify({ 
-        user_id: userId,
-        service,
-        country 
-      }),
+      body: JSON.stringify(body),
+      ...init,
     });
   }
 
-  async getSmsCode(activationId: string, userId: number): Promise<ApiResponse<any>> {
-    return this.request('/sms-service-api.php?action=getSms', {
+  public async checkPaymentStatus(body: VerifyPaymentBody, init?: RequestInit) {
+    return this.request<VerifyPaymentData>('/payvibe-verify.php', {
       method: 'POST',
-      body: JSON.stringify({ 
-        activation_id: activationId,
-        user_id: userId 
-      }),
+      body: JSON.stringify(body),
+      ...init,
     });
+  }
+
+  public async getTopUpHistory(init?: RequestInit) {
+    return this.request<any>('/api/wallet/history', { method: 'GET', ...init });
+  }
+
+  // SMS Services
+  public async getSmsServices(init?: RequestInit) {
+    return this.request<SmsServiceItem[]>('/sms-service-api.php?action=getServices', { method: 'GET', ...init });
+  }
+
+  public async orderSmsNumber(body: OrderSmsNumberBody, init?: RequestInit) {
+    return this.request<OrderSmsNumberData>('/sms-service-api.php?action=orderNumber', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      ...init,
+    });
+  }
+
+  public async getSmsCode(body: GetSmsCodeBody, init?: RequestInit) {
+    return this.request<GetSmsCodeData>('/sms-service-api.php?action=getSms', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      ...init,
+    });
+  }
+
+  // VTU
+  public async getVtuServices(init?: RequestInit) {
+    return this.request<VtuServiceItem[]>('/api/vtu/services', { method: 'GET', ...init });
+  }
+
+  public async purchaseVtu(body: PurchaseVtuBody, init?: RequestInit) {
+    return this.request<PurchaseVtuData>('/api/vtu/purchase', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      ...init,
+    });
+  }
+
+  // Proxy
+  public async getProxyServices(init?: RequestInit) {
+    return this.request<ProxyServiceItem[]>('/api/proxy/services', { method: 'GET', ...init });
+  }
+
+  public async purchaseProxy(body: PurchaseProxyBody, init?: RequestInit) {
+    return this.request<PurchaseProxyData>('/api/proxy/purchase', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      ...init,
+    });
+  }
+
+  // Utilities
+  public async testConnection(init?: RequestInit) {
+    return this.request<any>('/api/simple-test', { method: 'GET', ...init });
   }
 }
 
-// Create and export a singleton instance
-export const apiService = new ApiService();
-
-// Export the class for testing or custom instances
+export const apiService = new ApiService(API_BASE_URL);
 export default ApiService;

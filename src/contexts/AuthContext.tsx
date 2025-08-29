@@ -41,7 +41,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = useCallback(async (email: string, password: string) => {
     // Hit Laravel login endpoint
-    const resp = await fetch('http://127.0.0.1:8000/api/login', {
+    const base = (import.meta as any)?.env?.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+    const resp = await fetch(`${base}/api/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
