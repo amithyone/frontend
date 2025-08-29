@@ -1,48 +1,37 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { Shield, Phone, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { apiService } from '../services/api';
 
 const RecentTransactions: React.FC = () => {
   const { isDark } = useTheme();
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const transactions = [
-    {
-      id: 1,
-      type: 'Virtual Number',
-      service: 'WhatsApp',
-      amount: 500,
-      status: 'success',
-      time: '1 min ago',
-      icon: Shield
-    },
-    {
-      id: 2,
-      type: 'Airtime',
-      service: 'MTN',
-      amount: 1000,
-      status: 'success',
-      time: '2 mins ago',
-      icon: Phone
-    },
-    {
-      id: 3,
-      type: 'Virtual Number',
-      service: 'Telegram',
-      amount: 300,
-      status: 'pending',
-      time: '5 mins ago',
-      icon: Shield
-    },
-    {
-      id: 4,
-      type: 'Data Bundle',
-      service: 'Airtel',
-      amount: 2000,
-      status: 'failed',
-      time: '10 mins ago',
-      icon: Phone
-    }
-  ];
+  useEffect(() => {
+    let isMounted = true;
+    const fetchTx = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const resp = await apiService.getUserTransactions();
+        if (resp?.status === 'success' && (resp as any).data) {
+          if (isMounted) setTransactions((resp as any).data);
+        } else {
+          if (isMounted) setTransactions([]);
+        }
+      } catch (e) {
+        if (isMounted) setError(e instanceof Error ? e.message : 'Failed to load transactions');
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+    fetchTx();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -82,7 +71,10 @@ const RecentTransactions: React.FC = () => {
       }`}>Recent Transactions</h3>
       
       <div className="space-y-4">
-        {transactions.map((transaction) => {
+        {loading && (
+          <div className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Loading…</div>
+        )}
+        {!loading && transactions.map((transaction) => {
           const Icon = transaction.icon;
           return (
             <div key={transaction.id} className={`flex items-center justify-between p-3 rounded-xl ${
@@ -92,15 +84,15 @@ const RecentTransactions: React.FC = () => {
                 <div className={`p-2 rounded-lg ${
                   isDark ? 'bg-gray-600' : 'bg-oxford-blue'
                 }`}>
-                  <Icon className="h-4 w-4 text-white" />
+                  {(Icon ? <Icon className="h-4 w-4 text-white" /> : <Shield className="h-4 w-4 text-white" />)}
                 </div>
                 <div>
                   <p className={`font-medium text-sm ${
                     isDark ? 'text-white' : 'text-gray-900'
-                  }`}>{transaction.type}</p>
+                  }`}>{transaction.type || transaction.description || 'Transaction'}</p>
                   <p className={`text-xs ${
                     isDark ? 'text-gray-400' : 'text-gray-500'
-                  }`}>{transaction.service} • {transaction.time}</p>
+                  }`}>{transaction.service || ''} • {transaction.time || ''}</p>
                 </div>
               </div>
               
