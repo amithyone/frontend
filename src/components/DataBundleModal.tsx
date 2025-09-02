@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Wifi, CreditCard, CheckCircle, AlertCircle, RefreshCw, ChevronRight } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
-import { useVtu } from '../hooks/useVtu';
+import { useAuth } from '../contexts/AuthContext';
+import { useVtuContext } from '../contexts/VtuContext';
 
 interface DataBundleModalProps {
   isOpen: boolean;
@@ -10,6 +11,8 @@ interface DataBundleModalProps {
 
 const DataBundleModal: React.FC<DataBundleModalProps> = ({ isOpen, onClose }) => {
   const { isDark } = useTheme();
+  const { updateWalletBalance } = useAuth();
+  const { user } = useAuth();
   const {
     dataNetworks,
     dataBundles,
@@ -20,7 +23,7 @@ const DataBundleModal: React.FC<DataBundleModalProps> = ({ isOpen, onClose }) =>
     fetchDataBundles,
     purchaseDataBundle,
     validatePhoneNumber
-  } = useVtu();
+  } = useVtuContext();
 
   const [selectedNetwork, setSelectedNetwork] = useState<string>('');
   const [selectedBundle, setSelectedBundle] = useState<string>('');
@@ -29,6 +32,7 @@ const DataBundleModal: React.FC<DataBundleModalProps> = ({ isOpen, onClose }) =>
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [phoneValidation, setPhoneValidation] = useState<{ isValid: boolean; message: string } | null>(null);
+  const walletBalance = typeof user?.wallet === 'number' ? user.wallet : 0;
 
   // Fetch bundles when network changes
   useEffect(() => {
@@ -93,6 +97,9 @@ const DataBundleModal: React.FC<DataBundleModalProps> = ({ isOpen, onClose }) =>
       });
 
       setSuccess(`Data bundle purchase successful! Reference: ${result.reference}`);
+      if ((result as any)?.wallet !== undefined) {
+        updateWalletBalance((result as any).wallet);
+      }
       
       // Reset form
       setSelectedNetwork('');
@@ -290,7 +297,10 @@ const DataBundleModal: React.FC<DataBundleModalProps> = ({ isOpen, onClose }) =>
           {/* Info */}
           <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900 dark:bg-opacity-20 rounded-lg">
             <p className="text-sm text-blue-600 dark:text-blue-400">
-              💡 Powered by iRecharge - Instant data bundle activation
+              💡 Powered by VTU.ng - Instant data bundle activation
+            </p>
+            <p className="text-xs mt-1">
+              Wallet: ₦{walletBalance?.toLocaleString?.() || walletBalance}
             </p>
           </div>
         </div>

@@ -1,89 +1,35 @@
-import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import MobileLayout from './components/MobileLayout';
-import Sidebar from './components/Sidebar';
-import BottomNavigation from './components/BottomNavigation';
-import Dashboard from './components/Dashboard';
-import Services from './components/Services';
-import Wallet from './components/Wallet';
-import Transactions from './components/Transactions';
-import Settings from './components/Settings';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
+import { VtuProvider } from './contexts/VtuContext';
+import LandingPage from './components/LandingPage';
 import Login from './components/Login';
 import Register from './components/Register';
-import ForgotPassword from './components/ForgotPassword';
-import ResetPassword from './components/ResetPassword';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import Dashboard from './components/Dashboard';
+import ServicesTest from './components/ServicesTest';
+import './index.css';
 
-function AuthedApp() {
-  const [currentPage, setCurrentPage] = useState<'dashboard' | 'services' | 'wallet' | 'transactions' | 'settings'>('dashboard');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  const renderCurrentPage = () => {
-    switch (currentPage) {
-      case 'services':
-        return <Services />;
-      case 'wallet':
-        return <Wallet />;
-      case 'transactions':
-        return <Transactions />;
-      case 'settings':
-        return <Settings />;
-      default:
-        return <Dashboard />;
-    }
-  };
-
+function App() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <MobileLayout
-        currentPage={currentPage}
-        setCurrentPage={setCurrentPage}
-        sidebarOpen={sidebarOpen}
-        setSidebarOpen={setSidebarOpen}
-      >
-        <Sidebar
-          currentPage={currentPage}
-          setCurrentPage={setCurrentPage}
-          isOpen={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
-        />
-        {renderCurrentPage()}
-      </MobileLayout>
-      
-      <BottomNavigation
-        currentPage={currentPage}
-        setCurrentPage={setCurrentPage}
-      />
-    </div>
+    <ThemeProvider>
+      <AuthProvider>
+        <VtuProvider>
+          <Router>
+            <div className="min-h-screen bg-gradient-to-br from-oxford-blue via-oxford-blue-light to-oxford-blue-dark">
+              <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/test-services" element={<ServicesTest />} />
+              </Routes>
+            </div>
+          </Router>
+        </VtuProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
-
-const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
-  const { isAuthenticated } = useAuth();
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
-  return children;
-};
-
-const App: React.FC = () => (
-  <AuthProvider>
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <AuthedApp />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
-  </AuthProvider>
-);
 
 export default App;

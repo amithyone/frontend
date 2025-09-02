@@ -1,53 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Wallet, Plus } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
-import { apiService } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const WalletCard: React.FC = () => {
   const { isDark } = useTheme();
-  const [balance, setBalance] = useState<number | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const fetchBalance = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        // Try wallet stats first
-        const stats = await apiService.getWalletStats();
-        if (stats?.status === 'success' && (stats as any)?.data?.balance != null) {
-          if (isMounted) setBalance((stats as any).data.balance as number);
-          return;
-        }
-
-        // Fallback to user profile
-        const profile = await apiService.getUserProfile();
-        if (profile?.status === 'success' && (profile as any)?.data?.balance != null) {
-          if (isMounted) setBalance((profile as any).data.balance as number);
-          return;
-        }
-
-        // Final fallback to 0
-        if (isMounted) setBalance(0);
-      } catch (e) {
-        if (isMounted) {
-          setError(e instanceof Error ? e.message : 'Failed to load balance');
-          setBalance(0);
-        }
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
-    fetchBalance();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  // Get wallet balance from auth context
+  const balance = user?.wallet || 0;
 
   return (
     <div className={`rounded-2xl p-6 text-white shadow-xl transition-all duration-200 ${
@@ -61,7 +22,7 @@ const WalletCard: React.FC = () => {
             isDark ? 'text-gray-300' : 'text-blue-200'
           }`}>Wallet Balance</p>
           <h2 className="text-3xl font-bold">
-            {loading ? '₦…' : `₦${(balance ?? 0).toLocaleString()}`}
+            ₦{balance.toLocaleString()}
           </h2>
           <p className={`text-sm mt-1 ${
             isDark ? 'text-gray-300' : 'text-blue-200'

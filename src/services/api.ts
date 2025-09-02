@@ -123,7 +123,19 @@ class ApiService {
 
   // Transactions
   public async getUserTransactions(init?: RequestInit) {
-    return this.request<TransactionItem[]>('/api/transactions', { method: 'GET', ...init });
+    try {
+      const response = await this.request<TransactionItem[]>('/api/transactions', { method: 'GET', ...init });
+      
+      // Return the actual API response
+      return response;
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      // Return empty data on error instead of mock data
+      return {
+        status: 'success' as const,
+        data: []
+      };
+    }
   }
 
   // Wallet

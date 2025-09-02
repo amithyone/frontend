@@ -14,6 +14,12 @@ interface UseSmsReturn {
   errorServices: string | null;
   fetchServices: (country: string, provider?: string) => Promise<void>;
 
+  // Servers (Manual Selection)
+  servers: any[];
+  loadingServers: boolean;
+  errorServers: string | null;
+  fetchServers: () => Promise<void>;
+
   // Providers
   providers: SmsProvider[];
   loadingProviders: boolean;
@@ -24,7 +30,7 @@ interface UseSmsReturn {
   orders: SmsOrderHistory[];
   loadingOrders: boolean;
   errorOrders: string | null;
-  fetchOrders: (status?: string, limit?: number) => Promise<void>;
+  fetchOrders: (status?: string, page?: number) => Promise<void>;
 
   // Stats
   stats: SmsStats | null;
@@ -49,6 +55,11 @@ export const useSms = (): UseSmsReturn => {
   const [services, setServices] = useState<SmsService[]>([]);
   const [loadingServices, setLoadingServices] = useState(false);
   const [errorServices, setErrorServices] = useState<string | null>(null);
+
+  // Servers state (Manual Selection)
+  const [servers, setServers] = useState<any[]>([]);
+  const [loadingServers, setLoadingServers] = useState(false);
+  const [errorServers, setErrorServers] = useState<string | null>(null);
 
   // Providers state
   const [providers, setProviders] = useState<SmsProvider[]>([]);
@@ -95,6 +106,21 @@ export const useSms = (): UseSmsReturn => {
     }
   }, []);
 
+  // Fetch servers (Manual Selection)
+  const fetchServers = useCallback(async () => {
+    setLoadingServers(true);
+    setErrorServers(null);
+    
+    try {
+      const data = await smsApiService.getServers();
+      setServers(data);
+    } catch (error) {
+      setErrorServers(error instanceof Error ? error.message : 'Failed to fetch servers');
+    } finally {
+      setLoadingServers(false);
+    }
+  }, []);
+
   // Fetch providers
   const fetchProviders = useCallback(async () => {
     setLoadingProviders(true);
@@ -111,12 +137,12 @@ export const useSms = (): UseSmsReturn => {
   }, []);
 
   // Fetch orders
-  const fetchOrders = useCallback(async (status?: string, limit: number = 20) => {
+  const fetchOrders = useCallback(async (status?: string, page: number = 1) => {
     setLoadingOrders(true);
     setErrorOrders(null);
     
     try {
-      const data = await smsApiService.getOrders(status, limit);
+      const data = await smsApiService.getOrders(status, page);
       setOrders(data);
     } catch (error) {
       setErrorOrders(error instanceof Error ? error.message : 'Failed to fetch orders');
@@ -210,7 +236,8 @@ export const useSms = (): UseSmsReturn => {
     fetchOrders();
     fetchStats();
     fetchProviders(); // Added fetchProviders to load providers
-  }, [fetchCountries, fetchOrders, fetchStats, fetchProviders]);
+    fetchServers(); // Added fetchServers to load servers for manual selection
+  }, []); // Empty dependency array to run only once on mount
 
   return {
     // Countries
@@ -224,6 +251,12 @@ export const useSms = (): UseSmsReturn => {
     loadingServices,
     errorServices,
     fetchServices,
+
+    // Servers (Manual Selection)
+    servers,
+    loadingServers,
+    errorServers,
+    fetchServers,
 
     // Providers
     providers,

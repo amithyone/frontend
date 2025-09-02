@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Phone, CreditCard, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
-import { useVtu } from '../hooks/useVtu';
+import { useAuth } from '../contexts/AuthContext';
+import { useVtuContext } from '../contexts/VtuContext';
 
 interface AirtimeModalProps {
   isOpen: boolean;
@@ -10,13 +11,14 @@ interface AirtimeModalProps {
 
 const AirtimeModal: React.FC<AirtimeModalProps> = ({ isOpen, onClose }) => {
   const { isDark } = useTheme();
+  const { updateWalletBalance } = useAuth();
   const {
     airtimeNetworks,
     loadingNetworks,
     errorNetworks,
     purchaseAirtime,
     validatePhoneNumber
-  } = useVtu();
+  } = useVtuContext();
 
   const [selectedNetwork, setSelectedNetwork] = useState<string>('');
   const [phoneNumber, setPhoneNumber] = useState<string>('');
@@ -79,6 +81,9 @@ const AirtimeModal: React.FC<AirtimeModalProps> = ({ isOpen, onClose }) => {
       });
 
       setSuccess(`Airtime purchase successful! Reference: ${result.reference}`);
+      if ((result as any)?.wallet !== undefined) {
+        updateWalletBalance((result as any).wallet);
+      }
       
       // Reset form
       setSelectedNetwork('');

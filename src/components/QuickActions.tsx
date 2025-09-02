@@ -1,11 +1,12 @@
 import React from 'react';
 import { useTheme } from '../contexts/ThemeContext';
-import { Shield, Phone, Wifi, Tv, Zap } from 'lucide-react';
+import { Shield, Phone, Wifi, Tv, Zap, DollarSign } from 'lucide-react';
 import VirtualNumberModal from './VirtualNumberModal';
 import AirtimeModal from './AirtimeModal';
 import DataBundleModal from './DataBundleModal';
 import CableTVModal from './CableTVModal';
 import ElectricityModal from './ElectricityModal';
+import BettingModal from './BettingModal';
 
 const QuickActions: React.FC = () => {
   const { isDark } = useTheme();
@@ -14,6 +15,7 @@ const QuickActions: React.FC = () => {
   const [showDataModal, setShowDataModal] = React.useState(false);
   const [showCableTVModal, setShowCableTVModal] = React.useState(false);
   const [showElectricityModal, setShowElectricityModal] = React.useState(false);
+  const [showBettingModal, setShowBettingModal] = React.useState(false);
 
   const quickActions = [
     { 
@@ -35,8 +37,8 @@ const QuickActions: React.FC = () => {
       onClick: () => setShowDataModal(true)
     },
     { 
-      id: 'dstv', 
-      name: 'DSTV Renewal', 
+      id: 'cable', 
+      name: 'Cable TV', 
       icon: Tv,
       onClick: () => setShowCableTVModal(true)
     },
@@ -45,7 +47,13 @@ const QuickActions: React.FC = () => {
       name: 'Pay Bills', 
       icon: Zap,
       onClick: () => setShowElectricityModal(true)
-    }
+    },
+    { 
+      id: 'betting', 
+      name: 'Betting', 
+      icon: DollarSign,
+      onClick: () => setShowBettingModal(true)
+    },
   ];
 
   return (
@@ -112,6 +120,11 @@ const QuickActions: React.FC = () => {
     <ElectricityModal 
       isOpen={showElectricityModal} 
       onClose={() => setShowElectricityModal(false)} 
+    />
+    
+    <BettingModal 
+      isOpen={showBettingModal} 
+      onClose={() => setShowBettingModal(false)} 
     />
     </>
   );

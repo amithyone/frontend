@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Tv, Check, CreditCard, Search } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import { vtuApiService } from '../services/vtuApi';
+import { useAuth } from '../contexts/AuthContext';
 
 interface CableTVModalProps {
   isOpen: boolean;
@@ -16,6 +18,7 @@ interface TVPlan {
 
 const CableTVModal: React.FC<CableTVModalProps> = ({ isOpen, onClose }) => {
   const { isDark } = useTheme();
+  const { user } = useAuth();
   const [selectedProvider, setSelectedProvider] = useState<string>('');
   const [selectedPlan, setSelectedPlan] = useState<string>('');
   const [smartCardNumber, setSmartCardNumber] = useState<string>('');
@@ -29,27 +32,32 @@ const CableTVModal: React.FC<CableTVModalProps> = ({ isOpen, onClose }) => {
     { id: 'startimes', name: 'StarTimes', color: 'bg-red-600', logo: '⭐' }
   ];
 
-  const tvPlans: Record<string, TVPlan[]> = {
-    dstv: [
-      { id: 'dstv-padi', name: 'DStv Padi', price: 2500, duration: '1 month' },
-      { id: 'dstv-yanga', name: 'DStv Yanga', price: 3500, duration: '1 month' },
-      { id: 'dstv-confam', name: 'DStv Confam', price: 6200, duration: '1 month' },
-      { id: 'dstv-compact', name: 'DStv Compact', price: 10500, duration: '1 month' },
-      { id: 'dstv-premium', name: 'DStv Premium', price: 24500, duration: '1 month' }
-    ],
-    gotv: [
-      { id: 'gotv-smallie', name: 'GOtv Smallie', price: 1100, duration: '1 month' },
-      { id: 'gotv-jinja', name: 'GOtv Jinja', price: 2250, duration: '1 month' },
-      { id: 'gotv-jolli', name: 'GOtv Jolli', price: 3300, duration: '1 month' },
-      { id: 'gotv-max', name: 'GOtv Max', price: 4850, duration: '1 month' }
-    ],
-    startimes: [
-      { id: 'startimes-nova', name: 'Nova', price: 1200, duration: '1 month' },
-      { id: 'startimes-basic', name: 'Basic', price: 2200, duration: '1 month' },
-      { id: 'startimes-smart', name: 'Smart', price: 2800, duration: '1 month' },
-      { id: 'startimes-classic', name: 'Classic', price: 3500, duration: '1 month' }
-    ]
-  };
+  const [tvPlans, setTvPlans] = useState<Record<string, TVPlan[]>>({ dstv: [], gotv: [], startimes: [] });
+  const walletBalance = typeof user?.wallet === 'number' ? user.wallet : 0;
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        for (const p of providers) {
+          const res = await vtuApiService.getTvVariations(p.id);
+          // Map VTU.ng payload
+          const list = Array.isArray(res?.data) ? res.data : [];
+          setTvPlans((prev) => ({
+            ...prev,
+            [p.id]: list.map((it: any) => ({
+              id: String(it.variation_id),
+              name: it.data_plan || it.service_name || 'Plan',
+              price: Number(it.reseller_price ?? it.price ?? 0),
+              duration: it.duration || '1 month',
+            })),
+          }));
+        }
+      } catch (e) {
+        // keep empty; UI still usable
+      }
+    };
+    if (isOpen) load();
+  }, [isOpen]);
 
   const handleVerifyCard = async () => {
     if (!smartCardNumber || !selectedProvider) {
@@ -58,9 +66,15 @@ const CableTVModal: React.FC<CableTVModalProps> = ({ isOpen, onClose }) => {
     }
     
     setIsVerifying(true);
-    // Simulate API call to verify card
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setCustomerName('John Doe'); // Simulated customer name
+    try {
+      const data = await vtuApiService.verifyCustomer(selectedProvider, smartCardNumber);
+      // VTU.ng returns customer details in data
+      const name = data?.data?.customer_name || data?.customer_name || 'Verified Customer';
+      setCustomerName(name);
+    } catch (e) {
+      setCustomerName('');
+      alert('Verification failed');
+    }
     setIsVerifying(false);
   };
 
@@ -71,12 +85,18 @@ const CableTVModal: React.FC<CableTVModalProps> = ({ isOpen, onClose }) => {
     }
     
     const plan = tvPlans[selectedProvider].find(p => p.id === selectedPlan);
+    if (!plan) { alert('Plan not found'); return; }
+    if (plan.price > walletBalance) { alert('Insufficient wallet balance'); return; }
     setIsProcessing(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setIsProcessing(false);
-    alert(`${plan?.name} subscription successful for ${smartCardNumber}!`);
-    onClose();
+    try {
+      await vtuApiService.purchaseTv(selectedProvider, smartCardNumber, selectedPlan);
+      alert(`${plan.name} subscription successful for ${smartCardNumber}!`);
+      onClose();
+    } catch (e) {
+      alert('TV purchase failed');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleClose = () => {

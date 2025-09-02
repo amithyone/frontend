@@ -151,7 +151,7 @@ export const useVtu = (): UseVtuReturn => {
     fetchAirtimeNetworks();
     fetchDataNetworks();
     fetchProviderBalance();
-  }, [fetchAirtimeNetworks, fetchDataNetworks, fetchProviderBalance]);
+  }, []); // Empty dependency array to run only once on mount
 
   return {
     // Networks
