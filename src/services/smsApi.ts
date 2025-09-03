@@ -159,9 +159,34 @@ import { API_SMS_URL } from './api';
 // SMS API Service
 class SmsApiService {
   private baseUrl: string;
+  private defaultTimeoutMs = 5000;
 
   constructor() {
     this.baseUrl = API_SMS_URL;
+  }
+
+  // Internal: fetch with timeout (AbortController)
+  private async fetchWithTimeout(input: RequestInfo | URL, init: RequestInit, timeoutMs: number): Promise<Response> {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), Math.max(1, timeoutMs));
+    try {
+      return await fetch(input, { ...init, signal: controller.signal });
+    } finally {
+      clearTimeout(id);
+    }
+  }
+
+  // Internal: read cached JSON from localStorage
+  private readLocalCache<T>(key: string): T | null {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const { v, t, ttl } = JSON.parse(raw);
+      if (!t || !ttl || Date.now() - t > ttl) return null;
+      return v as T;
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -171,13 +196,14 @@ class SmsApiService {
     try {
       const params = new URLSearchParams();
       if (provider) params.append('provider', provider);
-      const response = await fetch(`${this.baseUrl}/sms/countries?${params.toString()}`, {
+      const timeoutMs = provider === '5sim' ? 1500 : this.defaultTimeoutMs;
+      const response = await this.fetchWithTimeout(`${this.baseUrl}/sms/countries?${params.toString()}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.getAuthToken()}`,
         },
-      });
+      }, timeoutMs);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: Failed to fetch countries`);
@@ -197,8 +223,13 @@ class SmsApiService {
       }
     } catch (error) {
       console.error('Error loading countries:', error);
-      // If provider-specific requested, do not fallback to mock
-      if (provider) throw error;
+      if (provider) {
+        // Try cached fallback
+        const cached = this.readLocalCache<SmsCountry[]>(`sms:countries:${provider}`);
+        if (cached && Array.isArray(cached) && cached.length > 0) return cached;
+        // Last resort: empty to avoid blocking UI
+        return [];
+      }
       return MOCK_SMS_COUNTRIES;
     }
   }
@@ -208,14 +239,15 @@ class SmsApiService {
    */
   async getServices(country: string, provider?: string): Promise<SmsService[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/sms/services`, {
+      const timeoutMs = provider === '5sim' ? 2000 : this.defaultTimeoutMs;
+      const response = await this.fetchWithTimeout(`${this.baseUrl}/sms/services`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.getAuthToken()}`,
         },
         body: JSON.stringify({ country, provider }),
-      });
+      }, timeoutMs);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: Failed to fetch services`);
@@ -244,7 +276,13 @@ class SmsApiService {
         return MOCK_SMS_SERVICES;
       }
     } catch (error) {
-      console.error('Error fetching services from Laravel, using mock data:', error);
+      console.error('Error fetching services from Laravel:', error);
+      if (provider) {
+        const cached = this.readLocalCache<SmsService[]>(`sms:services:${provider}:${country}`);
+        if (cached && Array.isArray(cached) && cached.length > 0) return cached;
+        return [];
+      }
+      // Non-provider-specific fallback to mock
       return MOCK_SMS_SERVICES;
     }
   }
@@ -638,19 +676,30 @@ class SmsApiService {
   async getCountriesByService(service: string, provider?: string): Promise<Array<{ country_id: string; country_name: string; cost: number; count: number; provider: string }>> {
     const params: any = { service };
     if (provider) params.provider = provider;
-    const response = await fetch(`${this.baseUrl}/sms/countries-by-service?` + new URLSearchParams(params), {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.getAuthToken()}`,
-      },
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}: Failed to fetch countries by service`);
-    const data = await response.json();
-    if (data.success && data.data) {
-      return data.data as Array<{ country_id: string; country_name: string; cost: number; count: number; provider: string }>;
+    const timeoutMs = provider === '5sim' ? 2000 : this.defaultTimeoutMs;
+    try {
+      const response = await this.fetchWithTimeout(`${this.baseUrl}/sms/countries-by-service?` + new URLSearchParams(params), {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`,
+        },
+      }, timeoutMs);
+      if (!response.ok) throw new Error(`HTTP ${response.status}: Failed to fetch countries by service`);
+      const data = await response.json();
+      if (data.success && data.data) {
+        return data.data as Array<{ country_id: string; country_name: string; cost: number; count: number; provider: string }>;
+      }
+      throw new Error(data.message || 'Failed to fetch countries by service');
+    } catch (e) {
+      console.error('Error fetching countries by service:', e);
+      if (provider) {
+        const cached = this.readLocalCache<Array<{ country_id: string; country_name: string; cost: number; count: number; provider: string }>>(`sms:countriesByService:${provider}:${service}`);
+        if (cached && Array.isArray(cached) && cached.length > 0) return cached;
+        return [];
+      }
+      throw e;
     }
-    throw new Error(data.message || 'Failed to fetch countries by service');
   }
 
   /**
