@@ -1,10 +1,11 @@
 // Centralized API configuration
+
 export const API_BASE_URL = (import.meta as any)?.env?.VITE_API_BASE_URL || 'http://localhost:8000';
-export const API_AUTH_URL = (import.meta as any)?.env?.VITE_API_AUTH_URL || 'http://localhost:8000/api';
-export const API_VTU_URL = (import.meta as any)?.env?.VITE_API_VTU_URL || 'http://localhost:8000/api/vtu';
-export const API_SMS_URL = (import.meta as any)?.env?.VITE_API_SMS_URL || 'http://localhost:8000/api';
-export const API_PROXY_URL = (import.meta as any)?.env?.VITE_API_PROXY_URL || 'http://localhost:8000/api/proxy';
-export const API_WALLET_URL = (import.meta as any)?.env?.VITE_API_WALLET_URL || 'http://localhost:8000/api/wallet';
+export const API_AUTH_URL = (import.meta as any)?.env?.VITE_API_AUTH_URL || 'http://localhost:8000';
+export const API_VTU_URL = (import.meta as any)?.env?.VITE_API_VTU_URL || 'http://localhost:8000/vtu';
+export const API_SMS_URL = (import.meta as any)?.env?.VITE_API_SMS_URL || 'http://localhost:8000';
+export const API_PROXY_URL = (import.meta as any)?.env?.VITE_API_PROXY_URL || 'http://localhost:8000/proxy';
+export const API_WALLET_URL = (import.meta as any)?.env?.VITE_API_WALLET_URL || 'http://localhost:8000/wallet';
 
 export type ApiStatus = 'success' | 'error';
 
@@ -69,7 +70,7 @@ export interface PurchaseProxyData { order_id: string | number; status: string }
 class ApiService {
   private baseUrl: string;
 
-  constructor(baseUrl: string = 'http://localhost:8000') {
+  constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
   }
 
@@ -99,7 +100,7 @@ class ApiService {
 
   // Auth
   public async register(body: RegisterBody, init?: RequestInit) {
-    return this.request<ApiResponse<AuthResponse>['data']>('/api/register', {
+    return this.request<ApiResponse<AuthResponse>['data']>('/register', {
       method: 'POST',
       body: JSON.stringify(body),
       ...init,
@@ -107,7 +108,7 @@ class ApiService {
   }
 
   public async login(body: LoginBody, init?: RequestInit) {
-    return this.request<AuthResponse>('/api/login', {
+    return this.request<AuthResponse>('/login', {
       method: 'POST',
       body: JSON.stringify(body),
       ...init,
@@ -115,7 +116,7 @@ class ApiService {
   }
 
   public async logout(init?: RequestInit) {
-    return this.request<undefined>('/api/logout', {
+    return this.request<undefined>('/logout', {
       method: 'POST',
       ...init,
     });
@@ -123,13 +124,13 @@ class ApiService {
 
   // Profile
   public async getUserProfile(init?: RequestInit) {
-    return this.request<ProfileData>('/api/user', { method: 'GET', ...init });
+    return this.request<ProfileData>('/user', { method: 'GET', ...init });
   }
 
   // Transactions
   public async getUserTransactions(init?: RequestInit) {
     try {
-      const response = await this.request<TransactionItem[]>('/api/transactions', { method: 'GET', ...init });
+      const response = await this.request<TransactionItem[]>('/transactions', { method: 'GET', ...init });
       
       // Return the actual API response
       return response;
@@ -145,7 +146,7 @@ class ApiService {
 
   // Wallet
   public async getWalletStats(init?: RequestInit) {
-    return this.request<{ totalTopUps: number; totalSpent: number }>('/api/wallet/stats', { method: 'GET', ...init });
+    return this.request<{ totalTopUps: number; totalSpent: number }>('/wallet/stats', { method: 'GET', ...init });
   }
 
   public async initiateTopUp(body: InitiateTopUpBody, init?: RequestInit) {
@@ -165,7 +166,7 @@ class ApiService {
   }
 
   public async getTopUpHistory(init?: RequestInit) {
-    return this.request<any>('/api/wallet/history', { method: 'GET', ...init });
+    return this.request<any>('/wallet/history', { method: 'GET', ...init });
   }
 
   // SMS Services
@@ -191,11 +192,11 @@ class ApiService {
 
   // VTU
   public async getVtuServices(init?: RequestInit) {
-    return this.request<VtuServiceItem[]>('/api/vtu/services', { method: 'GET', ...init });
+    return this.request<VtuServiceItem[]>('/vtu/services', { method: 'GET', ...init });
   }
 
   public async purchaseVtu(body: PurchaseVtuBody, init?: RequestInit) {
-    return this.request<PurchaseVtuData>('/api/vtu/purchase', {
+    return this.request<PurchaseVtuData>('/vtu/purchase', {
       method: 'POST',
       body: JSON.stringify(body),
       ...init,
@@ -204,11 +205,11 @@ class ApiService {
 
   // Proxy
   public async getProxyServices(init?: RequestInit) {
-    return this.request<ProxyServiceItem[]>('/api/proxy/services', { method: 'GET', ...init });
+    return this.request<ProxyServiceItem[]>('/proxy/services', { method: 'GET', ...init });
   }
 
   public async purchaseProxy(body: PurchaseProxyBody, init?: RequestInit) {
-    return this.request<PurchaseProxyData>('/api/proxy/purchase', {
+    return this.request<PurchaseProxyData>('/proxy/purchase', {
       method: 'POST',
       body: JSON.stringify(body),
       ...init,
@@ -217,9 +218,15 @@ class ApiService {
 
   // Utilities
   public async testConnection(init?: RequestInit) {
-    return this.request<any>('/api/simple-test', { method: 'GET', ...init });
+    return this.request<any>('/simple-test', { method: 'GET', ...init });
   }
 }
 
+// Create service instances with appropriate base URLs
 export const apiService = new ApiService(API_BASE_URL);
+export const vtuApiService = new ApiService(API_BASE_URL);
+export const smsApiService = new ApiService(API_BASE_URL);
+export const proxyApiService = new ApiService(API_BASE_URL);
+export const walletApiService = new ApiService(API_BASE_URL);
+
 export default ApiService;

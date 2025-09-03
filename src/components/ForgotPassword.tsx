@@ -19,7 +19,7 @@ const ForgotPassword: React.FC = () => {
       setMessage(null);
               // Conventional Laravel endpoint; adjust if needed
         const base = API_AUTH_URL;
-      const resp = await fetch(`${base}/api/forgot-password`, {
+      const resp = await fetch(`${base}/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({ email }),

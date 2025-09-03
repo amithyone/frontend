@@ -54,7 +54,7 @@ const Wallet: React.FC = () => {
   const [paymentStatus, setPaymentStatus] = useState<string>('');
 
   // Get wallet balance from auth context
-  const balance = user?.wallet || 0;
+  const balance = user?.balance || 0;
   const [totalSpent, setTotalSpent] = useState<number>(0);
   const [totalTopUps, setTotalTopUps] = useState<number>(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);

@@ -26,7 +26,7 @@ const ResetPassword: React.FC = () => {
       setMessage(null);
       const base = API_AUTH_URL;
       // Conventional Laravel reset route; adjust if different in your backend
-      const resp = await fetch(`${base}/api/reset-password`, {
+      const resp = await fetch(`${base}/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({ email, token: code, password }),

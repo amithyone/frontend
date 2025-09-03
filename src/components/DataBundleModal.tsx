@@ -32,7 +32,7 @@ const DataBundleModal: React.FC<DataBundleModalProps> = ({ isOpen, onClose }) =>
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [phoneValidation, setPhoneValidation] = useState<{ isValid: boolean; message: string } | null>(null);
-  const walletBalance = typeof user?.wallet === 'number' ? user.wallet : 0;
+  const walletBalance = typeof user?.balance === 'number' ? user.wallet : 0;
 
   // Fetch bundles when network changes
   useEffect(() => {

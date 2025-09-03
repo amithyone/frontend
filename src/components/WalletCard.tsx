@@ -8,7 +8,7 @@ const WalletCard: React.FC = () => {
   const { user } = useAuth();
 
   // Get wallet balance from auth context
-  const balance = user?.wallet || 0;
+  const balance = user?.balance || 0;
 
   return (
     <div className={`rounded-2xl p-6 text-white shadow-xl transition-all duration-200 ${

@@ -27,7 +27,7 @@ const BettingModal: React.FC<BettingModalProps> = ({ isOpen, onClose }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const wallet = typeof user?.wallet === 'number' ? user.wallet : 0;
+  const wallet = typeof user?.balance === 'number' ? user.wallet : 0;
 
   React.useEffect(() => {
     if (!isOpen) return;

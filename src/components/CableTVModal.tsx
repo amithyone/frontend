@@ -33,7 +33,7 @@ const CableTVModal: React.FC<CableTVModalProps> = ({ isOpen, onClose }) => {
   ];
 
   const [tvPlans, setTvPlans] = useState<Record<string, TVPlan[]>>({ dstv: [], gotv: [], startimes: [] });
-  const walletBalance = typeof user?.wallet === 'number' ? user.wallet : 0;
+  const walletBalance = typeof user?.balance === 'number' ? user.wallet : 0;
 
   useEffect(() => {
     const load = async () => {

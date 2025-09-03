@@ -36,7 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const loadProfile = async () => {
         try {
           const base = API_AUTH_URL;
-          const resp = await fetch(`${base}/api/user`, {
+          const resp = await fetch(`${base}/user`, {
             headers: {
               'Accept': 'application/json',
               'Authorization': `Bearer ${token}`,
@@ -71,7 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = useCallback(async (email: string, password: string, userData?: { firstName?: string; lastName?: string }) => {
     const base = API_AUTH_URL;
-    const resp = await fetch(`${base}/api/register`, {
+    const resp = await fetch(`${base}/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -121,7 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = useCallback(async (email: string, password: string) => {
     // Use Laravel login endpoint
     const base = API_AUTH_URL;
-    const resp = await fetch(`${base}/api/login`, {
+    const resp = await fetch(`${base}/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -168,7 +168,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // After login, fetch fresh profile to ensure wallet sync
     try {
       const base = API_AUTH_URL;
-      const resp = await fetch(`${base}/api/user`, {
+      const resp = await fetch(`${base}/user`, {
         headers: {
           'Accept': 'application/json',
           'Authorization': `Bearer ${newToken}`,
