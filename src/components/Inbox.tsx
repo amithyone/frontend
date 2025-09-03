@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { Search, Filter, CheckCircle2, AlertCircle, Bell, Wallet, Zap, Wifi, Phone } from 'lucide-react';
+import { smsApiService, SmsOrderHistory } from '../services/smsApi';
 
 export interface InboxItem {
   id: string | number;
@@ -11,13 +12,24 @@ export interface InboxItem {
   created_at: string; // ISO or display
 }
 
-const demoItems: InboxItem[] = [
-  { id: 1, title: 'Airtime purchase completed', body: 'MTN 0801••••••• ₦1,000 was delivered', category: 'vtu', status: 'success', created_at: 'Just now' },
-  { id: 2, title: 'Data bundle ready', body: '1.5GB Monthly activated for 0902•••••••', category: 'vtu', status: 'success', created_at: '2 mins ago' },
-  { id: 3, title: 'Wallet funded', body: '₦10,000 via bank transfer (Ref: PV12345)', category: 'wallet', status: 'info', created_at: 'Today' },
-  { id: 4, title: 'Server notice', body: 'VTU provider latency increased slightly. Monitoring…', category: 'system', status: 'warning', created_at: 'Today' },
-  { id: 5, title: 'Electricity token ready', body: 'Prepaid token sent to your email and SMS', category: 'orders', status: 'success', created_at: 'Yesterday' },
-];
+// Map backend SMS order to inbox item
+const mapOrderToInboxItem = (o: SmsOrderHistory): InboxItem => {
+  const isWaiting = !o.sms_code && (o.status?.toLowerCase?.() === 'pending' || o.status?.toLowerCase?.().includes('wait'));
+  const status: InboxItem['status'] = o.status?.toLowerCase?.() === 'completed' || o.status?.toLowerCase?.() === 'success'
+    ? 'success'
+    : isWaiting ? 'warning' : 'info';
+  const title = isWaiting ? 'Waiting for SMS code' : (o.sms_code ? 'SMS code received' : `SMS order ${o.status || ''}`.trim());
+  const cost = isNaN(Number(o.cost)) ? '' : ` • ₦${Number(o.cost).toLocaleString()}`;
+  const body = `${o.service?.toUpperCase?.() || 'SERVICE'} • ${o.phone_number || '—'}${cost}`;
+  return {
+    id: o.order_id,
+    title,
+    body,
+    category: 'orders',
+    status,
+    created_at: o.created_at || new Date().toISOString(),
+  };
+};
 
 const statusIcon = (status?: InboxItem['status']) => {
   switch (status) {
@@ -49,16 +61,38 @@ const Inbox: React.FC = () => {
   const { isDark } = useTheme();
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<'all' | 'orders' | 'wallet' | 'vtu' | 'system'>('all');
+  const [orders, setOrders] = useState<SmsOrderHistory[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchInbox = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await smsApiService.getInbox(undefined, 50);
+      setOrders(data);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load inbox');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInbox();
+    const t = setInterval(fetchInbox, 10000);
+    return () => clearInterval(t);
+  }, []);
 
   const items = useMemo(() => {
-    let list = demoItems;
+    let list: InboxItem[] = orders.map(mapOrderToInboxItem);
     if (tab !== 'all') list = list.filter(i => i.category === tab);
     if (query.trim()) {
       const q = query.toLowerCase();
       list = list.filter(i => i.title.toLowerCase().includes(q) || i.body.toLowerCase().includes(q));
     }
     return list;
-  }, [query, tab]);
+  }, [orders, query, tab]);
 
   return (
     <div className={`rounded-2xl border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
@@ -99,6 +133,12 @@ const Inbox: React.FC = () => {
 
       {/* List */}
       <ul className="divide-y last:border-b-0">
+        {loading && (
+          <li className="p-4 text-sm opacity-70">Loading inbox…</li>
+        )}
+        {error && (
+          <li className="p-4 text-sm text-red-600">{error}</li>
+        )}
         {items.map((i) => (
           <li key={i.id} className={`p-4 flex items-start gap-3 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
             <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-700'}`}>

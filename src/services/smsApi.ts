@@ -167,9 +167,11 @@ class SmsApiService {
   /**
    * Get available countries from Laravel backend
    */
-  async getCountries(): Promise<SmsCountry[]> {
+  async getCountries(provider?: string): Promise<SmsCountry[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/sms/countries`, {
+      const params = new URLSearchParams();
+      if (provider) params.append('provider', provider);
+      const response = await fetch(`${this.baseUrl}/sms/countries?${params.toString()}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -184,21 +186,19 @@ class SmsApiService {
       const data = await response.json();
       
       if (data.success && data.data) {
-        // Transform Laravel response to match our interface
         return data.data.map((country: any) => ({
           code: country.code,
           name: country.name,
           flag: this.getCountryFlag(country.code),
-          provider: country.provider || 'auto'
+          provider: country.provider || provider || 'auto'
         }));
       } else {
-        // Fallback to mock data if Laravel doesn't return expected format
-        console.warn('Using mock SMS countries data');
-        return MOCK_SMS_COUNTRIES;
+        throw new Error(data.message || 'Failed to fetch countries');
       }
     } catch (error) {
       console.error('Error loading countries:', error);
-      // Fallback to mock data
+      // If provider-specific requested, do not fallback to mock
+      if (provider) throw error;
       return MOCK_SMS_COUNTRIES;
     }
   }
@@ -544,7 +544,24 @@ class SmsApiService {
 
       if (!response.ok) throw new Error(`HTTP ${response.status}: Failed to fetch inbox`);
       const data = await response.json();
-      if (data.success && data.data) return data.data as SmsOrderHistory[];
+
+      if (data.success && data.data) {
+        const orders = data.data as any[];
+        return orders.map((order: any) => ({
+          order_id: order.order_id?.toString() || order.id?.toString(),
+          phone_number: order.phone_number || '',
+          service: order.service || order.service_type,
+          country: order.country || '',
+          cost: parseFloat(order.cost ?? order.amount ?? 0),
+          status: order.status || 'pending',
+          status_label: order.status || 'pending',
+          sms_code: order.sms_code || null,
+          expires_at: order.expires_at || null,
+          received_at: order.received_at || null,
+          provider: order.provider || (order.metadata?.provider ?? 'tiger_sms'),
+          created_at: order.created_at || new Date().toISOString(),
+        }));
+      }
       throw new Error(data.message || 'Failed to fetch inbox');
     } catch (e) {
       console.error('Error fetching inbox:', e);
@@ -618,19 +635,20 @@ class SmsApiService {
   /**
    * Get countries and NGN prices for a given service
    */
-  async getCountriesByService(service: string): Promise<Array<{ country: string; cost: number; provider_name: string }>> {
-    const response = await fetch(`${this.baseUrl}/sms/countries-by-service`, {
-      method: 'POST',
+  async getCountriesByService(service: string, provider?: string): Promise<Array<{ country_id: string; country_name: string; cost: number; count: number; provider: string }>> {
+    const params: any = {};
+    if (provider) params.provider = provider;
+    const response = await fetch(`${this.baseUrl}/sms/countries-by-service?` + new URLSearchParams(params), {
+      method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${this.getAuthToken()}`,
       },
-      body: JSON.stringify({ service })
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}: Failed to fetch countries by service`);
     const data = await response.json();
     if (data.success && data.data) {
-      return data.data.map((r: any) => ({ country: r.country, cost: Number(r.cost), provider_name: r.provider_name }));
+      return data.data as Array<{ country_id: string; country_name: string; cost: number; count: number; provider: string }>;
     }
     throw new Error(data.message || 'Failed to fetch countries by service');
   }
