@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { API_SMS_URL } from '../services/api';
 import { smsApiService } from '../services/smsApi';
 import { SmsService } from '../services/smsApi';
 
@@ -94,7 +95,7 @@ const ServicesTest: React.FC = () => {
             <h3 className="text-xl font-semibold text-white mb-4">API Response Summary</h3>
             <div className="text-left text-sm text-gray-300 space-y-2">
               <div><strong>Total Services:</strong> {services.length}</div>
-              <div><strong>Backend URL:</strong> http://localhost:8000/api/services</div>
+              <div><strong>Backend URL:</strong> {API_SMS_URL}/services</div>
               <div><strong>Data Source:</strong> Laravel Backend</div>
               <div><strong>Last Updated:</strong> {new Date().toLocaleString()}</div>
             </div>

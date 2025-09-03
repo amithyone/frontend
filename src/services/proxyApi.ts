@@ -148,12 +148,14 @@ const MOCK_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   { id: '3', name: 'Enterprise', description: 'For large scale operations', price: 50000, currency: 'NGN', duration: 30, duration_unit: 'days', features: ['Unlimited proxies', 'All countries', '24/7 support'], proxy_count: -1, country_count: -1, max_speed: 100, is_popular: false },
 ];
 
+import { API_PROXY_URL } from './api';
+
 // Proxy API Service
 class ProxyApiService {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = 'http://127.0.0.1:8000/api/proxy';
+    this.baseUrl = API_PROXY_URL;
   }
 
   /**

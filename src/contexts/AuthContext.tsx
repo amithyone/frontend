@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { API_AUTH_URL } from '../services/api';
 
 export interface AuthUser {
   id: number;
@@ -34,7 +35,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Fetch fresh user profile from backend to ensure wallet matches DB
       const loadProfile = async () => {
         try {
-          const base = (import.meta as any)?.env?.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+          const base = API_AUTH_URL;
           const resp = await fetch(`${base}/api/user`, {
             headers: {
               'Accept': 'application/json',
@@ -69,7 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user]);
 
   const register = useCallback(async (email: string, password: string, userData?: { firstName?: string; lastName?: string }) => {
-    const base = (import.meta as any)?.env?.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+    const base = API_AUTH_URL;
     const resp = await fetch(`${base}/api/register`, {
       method: 'POST',
       headers: {
@@ -119,7 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = useCallback(async (email: string, password: string) => {
     // Use Laravel login endpoint
-    const base = (import.meta as any)?.env?.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+    const base = API_AUTH_URL;
     const resp = await fetch(`${base}/api/login`, {
       method: 'POST',
       headers: {
@@ -166,7 +167,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(newUser ?? null);
     // After login, fetch fresh profile to ensure wallet sync
     try {
-      const base = (import.meta as any)?.env?.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+      const base = API_AUTH_URL;
       const resp = await fetch(`${base}/api/user`, {
         headers: {
           'Accept': 'application/json',

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { API_VTU_URL } from '../services/api';
 import { X, DollarSign, CheckCircle, AlertCircle } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,7 +11,7 @@ interface BettingModalProps {
 }
 
 const fetchProviders = async () => {
-  const resp = await fetch('http://127.0.0.1:8000/api/vtu/betting/providers');
+      const resp = await fetch(`${API_VTU_URL}/betting/providers`);
   const data = await resp.json();
   if (!data.success) throw new Error('Failed to load betting providers');
   return data.data as { id: string; name: string }[];
@@ -54,7 +55,7 @@ const BettingModal: React.FC<BettingModalProps> = ({ isOpen, onClose }) => {
       await vtuApiService.verifyCustomer(serviceId, customerId);
       // backend wallet check + provider call
       const token = localStorage.getItem('auth_token') || localStorage.getItem('authToken') || '';
-      const resp = await fetch('http://127.0.0.1:8000/api/vtu/betting/purchase', {
+              const resp = await fetch(`${API_VTU_URL}/betting/purchase`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

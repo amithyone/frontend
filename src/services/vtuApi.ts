@@ -86,12 +86,14 @@ const MOCK_DATA_BUNDLES: { [key: string]: VtuDataBundle[] } = {
   ],
 };
 
+import { API_VTU_URL } from './api';
+
 // VTU API Service
 class VtuApiService {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = 'http://127.0.0.1:8000/api/vtu';
+    this.baseUrl = API_VTU_URL;
   }
 
   /**

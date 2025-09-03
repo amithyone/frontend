@@ -154,12 +154,14 @@ const MOCK_SMS_PROVIDERS: SmsProvider[] = [
   }
 ];
 
+import { API_SMS_URL } from './api';
+
 // SMS API Service
 class SmsApiService {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = 'http://127.0.0.1:8000/api';
+    this.baseUrl = API_SMS_URL;
   }
 
   /**
@@ -204,14 +206,15 @@ class SmsApiService {
   /**
    * Get available SMS services from Laravel backend
    */
-  async getServices(country?: string, provider?: string): Promise<SmsService[]> {
+  async getServices(country: string, provider?: string): Promise<SmsService[]> {
     try {
       const response = await fetch(`${this.baseUrl}/sms/services`, {
-        method: 'GET',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.getAuthToken()}`,
         },
+        body: JSON.stringify({ country, provider }),
       });
 
       if (!response.ok) {
@@ -225,15 +228,15 @@ class SmsApiService {
         return data.data.map((service: any) => ({
           id: service.id,
           name: service.name,
-          service: service.name.toLowerCase().replace(/\s+/g, '_'),
-          cost: parseFloat(service.price) || parseFloat(service.conversion_rate) || 50, // Use price or conversion_rate as cost
-          count: 1, // Default count
-          provider: service.provider || 'auto',
-          provider_name: service.name,
+          service: service.service,
+          cost: Number(service.cost),
+          count: service.count ?? 1,
+          provider: service.provider,
+          provider_name: service.provider_name,
           description: service.description,
-          status: service.status || 'active',
-          priority: service.priority || 1,
-          success_rate: service.success_rate || 95
+          status: service.status ?? 'active',
+          priority: service.priority ?? 1,
+          success_rate: service.success_rate ?? 95,
         }));
       } else {
         // Fallback to mock data if Laravel doesn't return expected format
@@ -306,26 +309,15 @@ class SmsApiService {
   /**
    * Create a new SMS order with mode selection
    */
-  async createOrder(country: string, service: string, mode: 'auto' | 'manual' = 'auto', provider?: string): Promise<SmsOrder> {
+  async createOrder(country: string, service: string, mode: 'auto' | 'manual' = 'auto', provider?: string, userIdOverride?: number): Promise<SmsOrder> {
     try {
-      // Get services to find the service_id
-      const services = await this.getServices();
-      const selectedService = services.find(s => 
-        s.service === service || 
-        s.name.toLowerCase().includes(service.toLowerCase()) ||
-        s.name.toLowerCase().replace(/\s+/g, '_') === service.toLowerCase()
-      );
-      
-      if (!selectedService) {
-        throw new Error(`Service "${service}" not found in available services`);
-      }
+      const tokenUserId = this.getUserId();
+      const effectiveUserId = userIdOverride ?? tokenUserId ?? null;
 
-      // Prepare the payload for Laravel backend
       const body = {
-        service: service,
         country: country.toLowerCase(),
-        service_id: selectedService.id,
-        mode: mode
+        service: service,
+        ...(effectiveUserId ? { user_id: effectiveUserId } : {}),
       };
 
       const response = await fetch(`${this.baseUrl}/sms/order`, {
@@ -338,30 +330,57 @@ class SmsApiService {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: Failed to create order`);
+        let msg = `HTTP ${response.status}: Failed to create order`;
+        try {
+          const errJson = await response.json();
+          if (errJson?.message) msg = errJson.message;
+        } catch {}
+        throw new Error(msg);
       }
 
       const data = await response.json();
       
-      if (data.status === 'success' && data.data) {
+      if (data.success && data.data) {
         // Transform Laravel response to match our interface
         return {
-          id: data.data.verification_id?.toString() || data.data.order_id?.toString() || `SMS${Date.now()}`,
-          order_id: data.data.verification_id?.toString() || data.data.order_id?.toString() || `SMS${Date.now()}`,
+          id: data.data.order_id?.toString() || `SMS${Date.now()}`,
+          order_id: data.data.order_id?.toString() || `SMS${Date.now()}`,
           phone_number: data.data.phone_number || '',
           phone: data.data.phone_number || '',
           country: data.data.country || country,
           service: data.data.service || service,
-          cost: parseFloat(data.data.cost) || selectedService.cost || 50.00,
-          amount: parseFloat(data.data.cost) || selectedService.cost || 50.00,
+          cost: Number(data.data.cost) || 0,
+          amount: Number(data.data.cost) || 0,
           status: data.data.status || 'pending',
           expires_at: new Date(Date.now() + 300000).toISOString(), // 5 minutes
-          provider: data.data.api_service || selectedService.provider_name || 'Auto',
-          provider_name: data.data.api_service || selectedService.provider_name || 'Auto',
+          provider: data.data.provider || 'Auto',
+          provider_name: data.data.provider_name || 'Auto',
           mode: mode,
-          success_rate: selectedService.success_rate || 95,
+          success_rate: 95,
           currency: data.data.currency || 'NGN',
-          reference: data.data.verification_id?.toString() || data.data.order_id?.toString() || `SMS${Date.now()}`,
+          reference: data.data.order_id?.toString() || `SMS${Date.now()}`,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+      } else if (data.status === 'success' && data.data) {
+        // Handle alternative response format
+        return {
+          id: data.data.order_id?.toString() || `SMS${Date.now()}`,
+          order_id: data.data.order_id?.toString() || `SMS${Date.now()}`,
+          phone_number: data.data.phone_number || '',
+          phone: data.data.phone_number || '',
+          country: data.data.country || country,
+          service: data.data.service || service,
+          cost: Number(data.data.cost) || 0,
+          amount: Number(data.data.cost) || 0,
+          status: data.data.status || 'pending',
+          expires_at: new Date(Date.now() + 300000).toISOString(), // 5 minutes
+          provider: data.data.provider || 'Auto',
+          provider_name: data.data.provider_name || 'Auto',
+          mode: mode,
+          success_rate: 95,
+          currency: data.data.currency || 'NGN',
+          reference: data.data.order_id?.toString() || `SMS${Date.now()}`,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
@@ -387,6 +406,7 @@ class SmsApiService {
         },
         body: JSON.stringify({
           order_id: orderId,
+          user_id: this.getUserId(),
         }),
       });
 
@@ -396,9 +416,14 @@ class SmsApiService {
 
       const data = await response.json();
       
-      if (data.status === 'success' && data.data) {
+      if (data.success && data.data) {
         return {
-          sms_code: data.data.code || '',
+          sms_code: data.data.sms_code || data.data.code || '',
+          status: data.data.status || 'pending',
+        };
+      } else if (data.status === 'success' && data.data) {
+        return {
+          sms_code: data.data.sms_code || data.data.code || '',
           status: data.data.status || 'pending',
         };
       } else {
@@ -499,6 +524,33 @@ class SmsApiService {
   }
 
   /**
+   * Get inbox (previous SMS requests) using existing orders endpoint
+   */
+  async getInbox(status?: string, limit: number = 20): Promise<SmsOrderHistory[]> {
+    try {
+      const params = new URLSearchParams();
+      if (status) params.append('status', status);
+      params.append('limit', String(limit));
+
+      const response = await fetch(`${this.baseUrl}/sms/orders?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`,
+        },
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}: Failed to fetch inbox`);
+      const data = await response.json();
+      if (data.success && data.data) return data.data as SmsOrderHistory[];
+      throw new Error(data.message || 'Failed to fetch inbox');
+    } catch (e) {
+      console.error('Error fetching inbox:', e);
+      throw e;
+    }
+  }
+
+  /**
    * Get SMS service statistics
    */
   async getStats(): Promise<SmsStats> {
@@ -561,6 +613,72 @@ class SmsApiService {
     });
   }
 
+  /**
+   * Get countries and NGN prices for a given service
+   */
+  async getCountriesByService(service: string): Promise<Array<{ country: string; cost: number; provider_name: string }>> {
+    const response = await fetch(`${this.baseUrl}/sms/countries-by-service`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.getAuthToken()}`,
+      },
+      body: JSON.stringify({ service })
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}: Failed to fetch countries by service`);
+    const data = await response.json();
+    if (data.success && data.data) {
+      return data.data.map((r: any) => ({ country: r.country, cost: Number(r.cost), provider_name: r.provider_name }));
+    }
+    throw new Error(data.message || 'Failed to fetch countries by service');
+  }
+
+  /**
+   * Get services catalog (distinct services) with min NGN price and counts
+   */
+  async getServicesCatalog(search: string = '', limit: number = 100, offset: number = 0): Promise<{ items: SmsService[]; limit: number; offset: number; count: number; has_more: boolean; }> {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    params.append('limit', String(limit));
+    params.append('offset', String(offset));
+
+    const response = await fetch(`${this.baseUrl}/sms/services/catalog?${params.toString()}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.getAuthToken()}`,
+      },
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}: Failed to fetch services catalog`);
+    const data = await response.json();
+
+    if (data.success && data.data) {
+      const items: SmsService[] = (data.data.items || []).map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        service: s.service,
+        cost: Number(s.cost),
+        count: Number(s.count ?? 1),
+        provider: s.provider || 'auto',
+        provider_name: s.provider_name || 'Best price',
+        description: s.description,
+        status: s.status || 'active',
+        priority: s.priority || 1,
+        success_rate: s.success_rate || 95,
+      }));
+      return {
+        items,
+        limit: Number(data.data.limit ?? limit),
+        offset: Number(data.data.offset ?? offset),
+        count: Number(data.data.count ?? items.length),
+        has_more: Boolean(data.data.has_more),
+      };
+    }
+
+    throw new Error(data.message || 'Failed to fetch services catalog');
+  }
+
   private getAuthToken(): string {
     return localStorage.getItem('auth_token') || '';
   }
@@ -572,10 +690,11 @@ class SmsApiService {
     try {
       const token = this.getAuthToken();
       if (!token) return null;
-      
-      // Decode JWT token to get user ID (simple base64 decode for now)
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      return payload.sub || payload.user_id || null;
+      const parts = token.split('.');
+      if (parts.length < 2) return null;
+      const payload = JSON.parse(atob(parts[1]));
+      const candidate = payload.sub ?? payload.user_id ?? payload.id ?? payload.uid ?? null;
+      return candidate != null ? Number(candidate) : null;
     } catch (error) {
       console.error('Error getting user ID from token:', error);
       return null;

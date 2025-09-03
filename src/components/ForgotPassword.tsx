@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { API_AUTH_URL } from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -16,8 +17,8 @@ const ForgotPassword: React.FC = () => {
       setLoading(true);
       setError(null);
       setMessage(null);
-      // Conventional Laravel endpoint; adjust if needed
-      const base = (import.meta as any)?.env?.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+              // Conventional Laravel endpoint; adjust if needed
+        const base = API_AUTH_URL;
       const resp = await fetch(`${base}/api/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },

@@ -1,5 +1,10 @@
-// Exact implementation per spec
-export const API_BASE_URL = (import.meta as any)?.env?.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+// Centralized API configuration
+export const API_BASE_URL = (import.meta as any)?.env?.VITE_API_BASE_URL || 'http://localhost:8000';
+export const API_AUTH_URL = (import.meta as any)?.env?.VITE_API_AUTH_URL || 'http://localhost:8000/api';
+export const API_VTU_URL = (import.meta as any)?.env?.VITE_API_VTU_URL || 'http://localhost:8000/api/vtu';
+export const API_SMS_URL = (import.meta as any)?.env?.VITE_API_SMS_URL || 'http://localhost:8000/api';
+export const API_PROXY_URL = (import.meta as any)?.env?.VITE_API_PROXY_URL || 'http://localhost:8000/api/proxy';
+export const API_WALLET_URL = (import.meta as any)?.env?.VITE_API_WALLET_URL || 'http://localhost:8000/api/wallet';
 
 export type ApiStatus = 'success' | 'error';
 
@@ -64,7 +69,7 @@ export interface PurchaseProxyData { order_id: string | number; status: string }
 class ApiService {
   private baseUrl: string;
 
-  constructor(baseUrl: string = 'http://127.0.0.1:8000') {
+  constructor(baseUrl: string = 'http://localhost:8000') {
     this.baseUrl = baseUrl;
   }
 

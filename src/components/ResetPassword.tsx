@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { API_AUTH_URL } from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -23,7 +24,7 @@ const ResetPassword: React.FC = () => {
       setLoading(true);
       setError(null);
       setMessage(null);
-      const base = (import.meta as any)?.env?.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+      const base = API_AUTH_URL;
       // Conventional Laravel reset route; adjust if different in your backend
       const resp = await fetch(`${base}/api/reset-password`, {
         method: 'POST',
