@@ -5,12 +5,13 @@ import {
   Shield, 
   Wallet, 
   History, 
-  Settings
+  Settings,
+  Inbox
 } from 'lucide-react';
 
 interface BottomNavigationProps {
-  currentPage: 'dashboard' | 'services' | 'wallet' | 'transactions' | 'settings';
-  setCurrentPage: (page: 'dashboard' | 'services' | 'wallet' | 'transactions' | 'settings') => void;
+  currentPage: 'dashboard' | 'inbox' | 'wallet' | 'transactions' | 'settings';
+  setCurrentPage: (page: 'dashboard' | 'inbox' | 'wallet' | 'transactions' | 'settings') => void;
 }
 
 const BottomNavigation: React.FC<BottomNavigationProps> = ({ currentPage, setCurrentPage }) => {
@@ -18,7 +19,7 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({ currentPage, setCur
 
   const navItems = [
     { id: 'dashboard', name: 'Home', icon: Home },
-    { id: 'services', name: 'Services', icon: Shield },
+    { id: 'inbox', name: 'Inbox', icon: Inbox },
     { id: 'wallet', name: 'Wallet', icon: Wallet },
     { id: 'transactions', name: 'History', icon: History },
     { id: 'settings', name: 'Settings', icon: Settings },

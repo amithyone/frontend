@@ -1,256 +1,180 @@
-import React, { useState } from 'react';
-import { X, Zap, Check, CreditCard, Search } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { API_VTU_URL } from '../services/api';
+import { X, Zap, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ElectricityModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+type Provider = { id: string; name: string };
+
+enum MeterType {
+  Prepaid = 'prepaid',
+  Postpaid = 'postpaid',
+}
+
 const ElectricityModal: React.FC<ElectricityModalProps> = ({ isOpen, onClose }) => {
   const { isDark } = useTheme();
-  const [selectedProvider, setSelectedProvider] = useState<string>('');
-  const [meterNumber, setMeterNumber] = useState<string>('');
-  const [customerName, setCustomerName] = useState<string>('');
+  const { user } = useAuth();
+
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [serviceId, setServiceId] = useState('');
+  const [meterType, setMeterType] = useState<MeterType>(MeterType.Prepaid);
+  const [customerId, setCustomerId] = useState('');
   const [amount, setAmount] = useState<string>('');
-  const [meterType, setMeterType] = useState<'prepaid' | 'postpaid'>('prepaid');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
 
-  const providers = [
-    { id: 'ekedc', name: 'Eko Electric (EKEDC)', color: 'bg-blue-600', logo: '⚡' },
-    { id: 'ikedc', name: 'Ikeja Electric (IKEDC)', color: 'bg-green-600', logo: '🔌' },
-    { id: 'aedc', name: 'Abuja Electric (AEDC)', color: 'bg-red-600', logo: '💡' },
-    { id: 'phed', name: 'Port Harcourt Electric (PHED)', color: 'bg-purple-600', logo: '⚡' },
-    { id: 'kedco', name: 'Kano Electric (KEDCO)', color: 'bg-orange-600', logo: '🔋' },
-    { id: 'eedc', name: 'Enugu Electric (EEDC)', color: 'bg-indigo-600', logo: '💡' }
-  ];
+  const [verifying, setVerifying] = useState(false);
+  const [verifiedName, setVerifiedName] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const quickAmounts = [1000, 2000, 5000, 10000, 15000, 20000];
+  const wallet = typeof user?.balance === 'number' ? user.balance : 0;
 
-  const handleVerifyMeter = async () => {
-    if (!meterNumber || !selectedProvider) {
-      alert('Please enter meter number and select provider');
-      return;
+  useEffect(() => {
+    if (!isOpen) return;
+    const load = async () => {
+      try {
+        const resp = await fetch(`${API_VTU_URL}/electricity/providers`);
+        const ct = resp.headers.get('content-type') || '';
+        if (!ct.includes('application/json')) throw new Error('Unexpected response');
+        const data = await resp.json();
+        if (!data.success) throw new Error('Failed to load providers');
+        setProviders(data.data || []);
+      } catch {
+        setProviders([]);
+      }
+    };
+    load();
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!serviceId && providers.length) setServiceId(providers[0].id);
+  }, [providers, serviceId]);
+
+  const verify = async () => {
+    setMsg(null);
+    setVerifying(true);
+    setVerifiedName(null);
+    try {
+      const token = localStorage.getItem('auth_token') || localStorage.getItem('authToken') || '';
+      const resp = await fetch(`${API_VTU_URL}/electricity/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ service_id: serviceId, customer_id: customerId, variation_id: meterType }),
+      });
+      const ct = resp.headers.get('content-type') || '';
+      if (!ct.includes('application/json')) throw new Error('Unexpected response type');
+      const data = await resp.json();
+      if (!data.success) throw new Error(data.message || 'Verification failed');
+      const name = data?.data?.data?.customer_name || data?.data?.customer_name || 'Verified';
+      setVerifiedName(name);
+      setMsg({ type: 'success', text: `Verified: ${name}` });
+    } catch (e: any) {
+      setMsg({ type: 'error', text: e?.message || 'Verification failed' });
+    } finally {
+      setVerifying(false);
     }
-    
-    setIsVerifying(true);
-    // Simulate API call to verify meter
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setCustomerName('John Doe'); // Simulated customer name
-    setIsVerifying(false);
   };
 
-  const handlePayment = async () => {
-    if (!selectedProvider || !meterNumber || !amount) {
-      alert('Please fill all fields');
+  const submit = async () => {
+    setMsg(null);
+    const amt = Number(amount);
+    if (!serviceId || !customerId || !amt || amt <= 0) {
+      setMsg({ type: 'error', text: 'Select provider, enter meter number and valid amount' });
       return;
     }
-    
-    setIsProcessing(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setIsProcessing(false);
-    alert(`Electricity bill payment successful! ₦${amount} credited to meter ${meterNumber}`);
-    onClose();
-  };
-
-  const handleClose = () => {
-    setSelectedProvider('');
-    setMeterNumber('');
-    setCustomerName('');
-    setAmount('');
-    setMeterType('prepaid');
-    setIsProcessing(false);
-    setIsVerifying(false);
-    onClose();
+    if (amt > wallet) {
+      setMsg({ type: 'error', text: 'Insufficient wallet balance' });
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token') || localStorage.getItem('authToken') || '';
+      const resp = await fetch(`${API_VTU_URL}/electricity/purchase`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ service_id: serviceId, customer_id: customerId, variation_id: meterType, amount: amt }),
+      });
+      const ct = resp.headers.get('content-type') || '';
+      if (!ct.includes('application/json')) throw new Error('Unexpected response type');
+      const data = await resp.json();
+      if (!data.success) throw new Error(data.message || 'Electricity purchase failed');
+      setMsg({ type: 'success', text: 'Electricity purchased successfully' });
+      setCustomerId('');
+      setAmount('');
+      setVerifiedName(null);
+    } catch (e: any) {
+      setMsg({ type: 'error', text: e?.message || 'Electricity purchase failed' });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className={`w-full max-w-md rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto ${
-        isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
-      }`}>
-        {/* Header */}
+      <div className={`w-full max-w-md rounded-2xl shadow-2xl ${isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}`}>
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-xl font-bold flex items-center">
-            <Zap className="h-6 w-6 mr-2 text-orange-500" />
-            Electricity Bills
+            <Zap className="h-6 w-6 mr-2 text-yellow-500" /> Electricity Bills
           </h2>
-          <button
-            onClick={handleClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
             <X className="h-5 w-5" />
           </button>
         </div>
-
-        {/* Content */}
-        <div className="p-6 space-y-6">
-          {/* Meter Type */}
-          <div>
-            <label className="block text-sm font-medium mb-3">Meter Type</label>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setMeterType('prepaid')}
-                className={`flex-1 p-3 rounded-lg border transition-all duration-200 ${
-                  meterType === 'prepaid'
-                    ? 'border-orange-500 bg-orange-50 dark:bg-orange-900 dark:bg-opacity-20 text-orange-600'
-                    : isDark 
-                      ? 'border-gray-600 bg-gray-700 hover:bg-gray-600' 
-                      : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
-                }`}
-              >
-                Prepaid
-              </button>
-              <button
-                onClick={() => setMeterType('postpaid')}
-                className={`flex-1 p-3 rounded-lg border transition-all duration-200 ${
-                  meterType === 'postpaid'
-                    ? 'border-orange-500 bg-orange-50 dark:bg-orange-900 dark:bg-opacity-20 text-orange-600'
-                    : isDark 
-                      ? 'border-gray-600 bg-gray-700 hover:bg-gray-600' 
-                      : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
-                }`}
-              >
-                Postpaid
-              </button>
+        <div className="p-6 space-y-4">
+          {msg && (
+            <div className={`p-3 rounded flex items-center ${msg.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+              {msg.type === 'success' ? <CheckCircle className="h-5 w-5 mr-2" /> : <AlertCircle className="h-5 w-5 mr-2" />}
+              {msg.text}
             </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Provider</label>
+            <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} className={`w-full p-3 border rounded-lg ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}>
+              {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
           </div>
 
-          {/* Provider Selection */}
           <div>
-            <label className="block text-sm font-medium mb-3">Select Provider</label>
-            <div className="space-y-2">
-              {providers.map((provider) => (
-                <button
-                  key={provider.id}
-                  onClick={() => {
-                    setSelectedProvider(provider.id);
-                    setCustomerName('');
-                  }}
-                  className={`w-full p-4 rounded-xl border transition-all duration-200 text-left ${
-                    selectedProvider === provider.id
-                      ? 'border-orange-500 bg-orange-50 dark:bg-orange-900 dark:bg-opacity-20'
-                      : isDark 
-                        ? 'border-gray-600 bg-gray-700 hover:bg-gray-600' 
-                        : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className={`p-2 rounded-lg ${provider.color}`}>
-                      <span className="text-white text-lg">{provider.logo}</span>
-                    </div>
-                    <span className="font-medium">{provider.name}</span>
-                    {selectedProvider === provider.id && (
-                      <Check className="h-5 w-5 text-orange-500 ml-auto" />
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
+            <label className="block text-sm font-medium mb-2">Meter Type</label>
+            <select value={meterType} onChange={(e) => setMeterType(e.target.value as MeterType)} className={`w-full p-3 border rounded-lg ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}>
+              <option value={MeterType.Prepaid}>Prepaid</option>
+              <option value={MeterType.Postpaid}>Postpaid</option>
+            </select>
           </div>
 
-          {/* Meter Number */}
           <div>
-            <label className="block text-sm font-medium mb-2">Meter Number</label>
-            <div className="flex space-x-2">
-              <input
-                type="text"
-                placeholder="Enter meter number"
-                value={meterNumber}
-                onChange={(e) => setMeterNumber(e.target.value)}
-                className={`flex-1 px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
-                  isDark 
-                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                    : 'bg-white border-gray-200 text-gray-900'
-                }`}
-              />
-              <button
-                onClick={handleVerifyMeter}
-                disabled={isVerifying || !meterNumber || !selectedProvider}
-                className="px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 flex items-center"
-              >
-                {isVerifying ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                ) : (
-                  <Search className="h-5 w-5" />
-                )}
-              </button>
-            </div>
-            {customerName && (
-              <div className={`mt-2 p-3 rounded-lg ${
-                isDark ? 'bg-green-900 bg-opacity-20' : 'bg-green-50'
-              }`}>
-                <p className="text-sm text-green-600">
-                  ✓ Customer: {customerName}
-                </p>
-              </div>
-            )}
+            <label className="block text-sm font-medium mb-2">Meter / Account Number</label>
+            <input value={customerId} onChange={(e) => setCustomerId(e.target.value)} className={`w-full p-3 border rounded-lg ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`} placeholder="Enter meter/account number" />
+            {verifiedName && <div className="text-xs mt-1 text-green-600">Name: {verifiedName}</div>}
+            <button onClick={verify} disabled={verifying || !serviceId || !customerId} className="mt-2 text-sm flex items-center gap-1 disabled:opacity-50">
+              {verifying ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Verify
+            </button>
           </div>
 
-          {/* Amount Selection */}
           <div>
-            <label className="block text-sm font-medium mb-3">Select Amount</label>
-            <div className="grid grid-cols-3 gap-2 mb-3">
-              {quickAmounts.map((quickAmount) => (
-                <button
-                  key={quickAmount}
-                  onClick={() => setAmount(quickAmount.toString())}
-                  className={`p-3 rounded-lg border transition-all duration-200 ${
-                    amount === quickAmount.toString()
-                      ? 'border-orange-500 bg-orange-50 dark:bg-orange-900 dark:bg-opacity-20 text-orange-600'
-                      : isDark 
-                        ? 'border-gray-600 bg-gray-700 hover:bg-gray-600' 
-                        : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
-                  }`}
-                >
-                  ₦{quickAmount}
-                </button>
-              ))}
-            </div>
+            <label className="block text-sm font-medium mb-2">Amount</label>
             <input
-              type="number"
-              placeholder="Enter custom amount"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
-                isDark 
-                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                  : 'bg-white border-gray-200 text-gray-900'
-              }`}
+              onChange={(e) => setAmount(e.target.value.replace(/\D/g, '').replace(/^0+/, ''))}
+              className={`w-full p-3 border rounded-lg ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
+              placeholder="e.g. 1000"
             />
+            <div className="text-xs mt-1">Wallet: ₦{wallet.toLocaleString?.() || wallet}</div>
           </div>
 
-          {/* Payment Button */}
-          <button
-            onClick={handlePayment}
-            disabled={isProcessing || !selectedProvider || !meterNumber || !amount}
-            className="w-full bg-gradient-to-r from-orange-600 to-red-600 text-white py-3 rounded-xl font-semibold hover:from-orange-700 hover:to-red-700 transition-all duration-200 disabled:opacity-50 flex items-center justify-center space-x-2"
-          >
-            {isProcessing ? (
-              <>
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                <span>Processing...</span>
-              </>
-            ) : (
-              <>
-                <CreditCard className="h-5 w-5" />
-                <span>Pay Bill - ₦{amount || '0'}</span>
-              </>
-            )}
+          <button onClick={submit} disabled={isLoading || !serviceId || !customerId || Number(amount) <= 0} className="w-full bg-gradient-to-r from-yellow-600 to-amber-600 text-white py-3 rounded-lg font-semibold disabled:opacity-50">
+            {isLoading ? 'Processing...' : 'Pay Electricity Bill'}
           </button>
-
-          {/* Info */}
-          <div className={`p-4 rounded-xl ${
-            isDark ? 'bg-blue-900 bg-opacity-20' : 'bg-blue-50'
-          }`}>
-            <p className="text-sm text-blue-600 dark:text-blue-400">
-              ⚡ {meterType === 'prepaid' ? 'Units will be credited to your meter within 5 minutes' : 'Your bill payment will be processed within 24 hours'}
-            </p>
-          </div>
         </div>
       </div>
     </div>

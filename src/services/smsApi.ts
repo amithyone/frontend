@@ -314,11 +314,13 @@ class SmsApiService {
       const tokenUserId = this.getUserId();
       const effectiveUserId = userIdOverride ?? tokenUserId ?? null;
 
-      const body = {
+      const body: any = {
         country: country.toLowerCase(),
         service: service,
-        ...(effectiveUserId ? { user_id: effectiveUserId } : {}),
+        mode: mode,
       };
+      if (provider) body.provider = provider;
+      if (effectiveUserId) body.user_id = effectiveUserId;
 
       const response = await fetch(`${this.baseUrl}/sms/order`, {
         method: 'POST',

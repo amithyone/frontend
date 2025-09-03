@@ -8,13 +8,13 @@ import RecentTransactions from './RecentTransactions';
 import ServerCard from './ServerCard';
 import Navigation from './Navigation';
 import BottomNavigation from './BottomNavigation';
-import RecentDeposits from './RecentDeposits';
+import Inbox from './Inbox';
 
 const Dashboard: React.FC = () => {
   const { isDark } = useTheme();
   const { user } = useAuth();
   const [currentPage, setCurrentPage] = useState<'home' | 'services'>('home');
-  const [bottomCurrentPage, setBottomCurrentPage] = useState<'dashboard' | 'services' | 'wallet' | 'transactions' | 'settings'>('dashboard');
+  const [bottomCurrentPage, setBottomCurrentPage] = useState<'dashboard' | 'inbox' | 'wallet' | 'transactions' | 'settings'>('dashboard');
 
   const renderContent = () => {
     switch (bottomCurrentPage) {
@@ -28,18 +28,12 @@ const Dashboard: React.FC = () => {
             <RecentTransactions />
           </>
         );
-      case 'services':
-        return (
-          <>
-            <ServiceGrid />
-            <QuickActions />
-          </>
-        );
+      case 'inbox':
+        return <Inbox />;
       case 'wallet':
         return (
           <>
             <WalletCard />
-            <RecentDeposits />
           </>
         );
       case 'transactions':
