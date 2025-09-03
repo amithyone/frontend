@@ -131,12 +131,18 @@ class ApiService {
   public async getUserTransactions(init?: RequestInit) {
     try {
       const response = await this.request<TransactionItem[]>('/transactions', { method: 'GET', ...init });
-      
-      // Return the actual API response
+      // Normalize backend { success, data } into ApiResponse shape
+      const anyResp: any = response as any;
+      if (typeof anyResp?.success === 'boolean') {
+        return {
+          status: anyResp.success ? 'success' as const : 'error' as const,
+          data: anyResp.data ?? [],
+          message: anyResp.message,
+        };
+      }
       return response;
     } catch (error) {
       console.error('Error fetching transactions:', error);
-      // Return empty data on error instead of mock data
       return {
         status: 'success' as const,
         data: []
@@ -147,6 +153,10 @@ class ApiService {
   // Wallet
   public async getWalletStats(init?: RequestInit) {
     return this.request<{ totalTopUps: number; totalSpent: number }>('/wallet/stats', { method: 'GET', ...init });
+  }
+
+  public async getRecentDeposits(init?: RequestInit) {
+    return this.request<Array<{ id: number; amount: number; reference: string; status: string; created_at: string }>>('/wallet/deposits', { method: 'GET', ...init });
   }
 
   public async initiateTopUp(body: InitiateTopUpBody, init?: RequestInit) {

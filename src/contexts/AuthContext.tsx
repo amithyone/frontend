@@ -8,6 +8,7 @@ export interface AuthUser {
   name?: string;
   email?: string;
   wallet?: number; // Add wallet balance
+  balance?: number; // Add balance field from users table
 }
 
 interface AuthContextValue {
@@ -52,6 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               name: freshUser?.name,
               email: freshUser?.email,
               wallet: typeof walletBalance === 'number' ? walletBalance : Number(walletBalance ?? 0),
+              balance: typeof walletBalance === 'number' ? walletBalance : Number(walletBalance ?? 0),
             };
             setUser((prev) => ({ ...(prev || {} as any), ...normalized }));
           }
@@ -186,6 +188,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           name: freshUser?.name,
           email: freshUser?.email,
           wallet: typeof walletBalance === 'number' ? walletBalance : Number(walletBalance ?? 0),
+          balance: typeof walletBalance === 'number' ? walletBalance : Number(walletBalance ?? 0),
         };
         setUser((prev) => ({ ...(prev || {} as any), ...normalized }));
       }
@@ -193,8 +196,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const updateWalletBalance = useCallback((balance: number) => {
+    console.log('AuthContext - updateWalletBalance called with:', balance);
+    console.log('AuthContext - current user:', user);
     if (user) {
-      setUser({ ...user, wallet: balance });
+      const updatedUser = { ...user, wallet: balance, balance: balance };
+      console.log('AuthContext - setting updated user:', updatedUser);
+      setUser(updatedUser);
+    } else {
+      console.log('AuthContext - no user to update');
     }
   }, [user]);
 

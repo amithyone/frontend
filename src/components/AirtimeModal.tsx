@@ -255,7 +255,7 @@ const AirtimeModal: React.FC<AirtimeModalProps> = ({ isOpen, onClose }) => {
           {/* Info */}
           <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900 dark:bg-opacity-20 rounded-lg">
             <p className="text-sm text-blue-600 dark:text-blue-400">
-              💡 Powered by iRecharge - Instant airtime delivery to all networks
+              💡 Powered by Amithyone - Instant airtime delivery to all networks
             </p>
           </div>
         </div>

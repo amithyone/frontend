@@ -88,6 +88,33 @@ const MOCK_DATA_BUNDLES: { [key: string]: VtuDataBundle[] } = {
 
 import { API_VTU_URL } from './api';
 
+// Lightweight localStorage cache with TTL
+function cacheGet<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const { value, expiresAt } = parsed;
+    if (expiresAt && Date.now() > Number(expiresAt)) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    return value as T;
+  } catch {
+    return null;
+  }
+}
+
+function cacheSet<T>(key: string, value: T, ttlMs: number): void {
+  try {
+    const expiresAt = Date.now() + ttlMs;
+    localStorage.setItem(key, JSON.stringify({ value, expiresAt }));
+  } catch {
+    // ignore
+  }
+}
+
 // VTU API Service
 class VtuApiService {
   private baseUrl: string;
@@ -101,29 +128,22 @@ class VtuApiService {
    */
   async getAirtimeNetworks(): Promise<VtuNetwork[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/airtime/networks`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.getAuthToken()}`,
-        },
-      });
-
-      if (response.status === 404) {
-        console.warn('VTU airtime networks endpoint not found, using mock data');
-        return MOCK_AIRTIME_NETWORKS;
+      const cacheKey = 'vtu.airtime.networks';
+      const cached = cacheGet<VtuNetwork[]>(cacheKey);
+      if (cached && cached.length) {
+        // Background refresh using fresh fetcher to avoid recursion
+        this.fetchAirtimeNetworksFresh().then((fresh) => {
+          if (fresh && fresh.length) cacheSet(cacheKey, fresh, 1000 * 60 * 30);
+        }).catch(() => {});
+        return cached;
       }
-
-      const data = await response.json();
-      
-      if (data.success) {
-        return data.data;
-      } else {
-        throw new Error(data.message || 'Failed to fetch airtime networks');
-      }
+      const fresh = await this.fetchAirtimeNetworksFresh();
+      cacheSet(cacheKey, fresh, 1000 * 60 * 30);
+      return fresh;
     } catch (error) {
       console.error('Error fetching airtime networks:', error);
       console.warn('Using mock airtime networks data');
+      cacheSet('vtu.airtime.networks', MOCK_AIRTIME_NETWORKS, 1000 * 60 * 30);
       return MOCK_AIRTIME_NETWORKS;
     }
   }
@@ -133,46 +153,21 @@ class VtuApiService {
    */
   async getDataNetworks(): Promise<VtuNetwork[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/data/networks`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.getAuthToken()}`,
-        },
-      });
-
-      if (response.status === 404) {
-        console.warn('VTU data networks endpoint not found, using mock data');
-        return MOCK_DATA_NETWORKS;
+      const cacheKey = 'vtu.data.networks';
+      const cached = cacheGet<VtuNetwork[]>(cacheKey);
+      if (cached && cached.length) {
+        this.fetchDataNetworksFresh().then((fresh) => {
+          if (fresh && fresh.length) cacheSet(cacheKey, fresh, 1000 * 60 * 30);
+        }).catch(() => {});
+        return cached;
       }
-
-      const data = await response.json();
-      // Debug: inspect raw response from backend to verify shape
-      console.log('VTU getDataNetworks raw:', data);
-      
-      if (data.success) {
-         const payload = data.data;
-         if (Array.isArray(payload)) {
-           return payload.map((item: any, idx: number) => {
-             const rawCode = typeof item === 'string' ? item : (item?.code ?? item?.id ?? item?.name ?? `NET${idx+1}`);
-             const rawName = typeof item === 'string' ? item : (item?.name ?? rawCode);
-             const status = typeof item === 'object' && item?.status ? item.status : 'active';
-             const codeStr = String(rawCode).toUpperCase();
-             return {
-               id: String(idx + 1),
-               name: String(rawName).toUpperCase(),
-               code: codeStr,
-               status,
-             } as VtuNetwork;
-           });
-         }
-         return payload;
-      } else {
-        throw new Error(data.message || 'Failed to fetch data networks');
-      }
+      const fresh = await this.fetchDataNetworksFresh();
+      cacheSet(cacheKey, fresh, 1000 * 60 * 30);
+      return fresh;
     } catch (error) {
       console.error('Error fetching data networks:', error);
       console.warn('Using mock data networks');
+      cacheSet('vtu.data.networks', MOCK_DATA_NETWORKS, 1000 * 60 * 30);
       return MOCK_DATA_NETWORKS;
     }
   }
@@ -183,63 +178,18 @@ class VtuApiService {
   async getDataBundles(network: string): Promise<VtuDataBundle[]> {
     try {
       console.log('VTU getDataBundles called with network:', network);
-      // Proxy to backend variations endpoint which talks to VTU.ng
-      const params = new URLSearchParams({ service_id: network.toLowerCase() });
-      console.log('VTU getDataBundles URL params:', params.toString());
-      const fullUrl = `${this.baseUrl}/variations/data?${params}`;
-      console.log('VTU getDataBundles full URL:', fullUrl);
-      const response = await fetch(fullUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          // variations endpoint is public in backend; auth header optional
-          'Authorization': this.getAuthToken() ? `Bearer ${this.getAuthToken()}` : '',
-        },
-      });
-
-      const ct = response.headers.get('content-type') || '';
-      if (!ct.includes('application/json')) {
-        throw new Error(`Unexpected response type: ${ct || 'unknown'}`);
+      // Cache key per network
+      const cacheKey = `vtu.bundles.${network.toLowerCase()}`;
+      const cached = cacheGet<VtuDataBundle[]>(cacheKey);
+      if (cached && cached.length) {
+        this.fetchDataBundlesFresh(network).then((fresh) => {
+          if (fresh && fresh.length) cacheSet(cacheKey, fresh, 1000 * 60 * 15);
+        }).catch(() => {});
+        return cached;
       }
-      const data = await response.json();
-      // Debug: inspect raw variations from backend to verify fields
-      console.log('VTU getDataBundles raw:', data);
-      
-      if (data.success) {
-        // Map backend response format to VtuDataBundle[]
-        const payload = data.data;
-        console.log('VTU getDataBundles payload:', payload);
-        
-        // Handle nested data structure: data.data.data or data.data
-        const list = Array.isArray(payload) ? payload : (payload?.data && Array.isArray(payload.data) ? payload.data : []);
-        console.log('VTU getDataBundles list:', list);
-        
-        const mappedBundles = list.map((item: any, idx: number) => ({
-          id: String(
-            item?.variation_id ??
-            item?.id ??
-            `${network.toUpperCase()}-${item?.plan ?? idx}`
-          ),
-          name: item.plan_name || item.plan || item.name || 'Plan',
-          size: item.plan || '',
-          validity: '',
-          price: Number(
-            item.amount ??
-            item.reseller_price ??
-            item.selling_price ??
-            item.variation_amount ??
-            item.price ??
-            0
-          ),
-          network: network.toUpperCase(),
-          description: item.plan_name || item.plan || '',
-        }));
-        
-        console.log('VTU getDataBundles mapped:', mappedBundles);
-        return mappedBundles;
-      } else {
-        throw new Error(data.message || 'Failed to fetch data bundles');
-      }
+      const fresh = await this.fetchDataBundlesFresh(network);
+      cacheSet(cacheKey, fresh, 1000 * 60 * 15);
+      return fresh;
     } catch (error) {
       console.error('Error fetching data bundles:', error);
       console.warn('Using mock data bundles');
@@ -252,9 +202,9 @@ class VtuApiService {
    */
   async purchaseAirtime(request: VtuPurchaseRequest): Promise<VtuPurchaseResponse> {
     try {
-      // Adapt to backend payload: { service_id, phone, amount }
+      // Adapt to backend payload: { network, phone, amount }
       const payload = {
-        service_id: (request.network || '').toLowerCase(),
+        network: (request.network || '').toLowerCase(),
         phone: request.phone,
         amount: request.amount ?? 0,
       };
@@ -276,7 +226,7 @@ class VtuApiService {
       if (data.success) {
         return {
           reference: data.data.reference,
-          network: payload.service_id,
+          network: payload.network,
           phone: payload.phone,
           amount: payload.amount,
           status: 'success',
@@ -496,9 +446,86 @@ class VtuApiService {
     }
   }
 
+  // Optional: warm up caches in parallel
+  async warmup(): Promise<void> {
+    try {
+      await Promise.allSettled([
+        this.getAirtimeNetworks(),
+        this.getDataNetworks(),
+        this.getDataBundles('mtn'),
+        this.getDataBundles('airtel'),
+      ]);
+    } catch {}
+  }
+
   private getAuthToken(): string {
     // Prefer 'auth_token' (AuthContext), fallback to legacy 'authToken'
     return localStorage.getItem('auth_token') || localStorage.getItem('authToken') || '';
+  }
+
+  // Internal fresh fetchers (no cache, no background refresh)
+  private async fetchAirtimeNetworksFresh(): Promise<VtuNetwork[]> {
+    const response = await fetch(`${this.baseUrl}/airtime/networks`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.getAuthToken()}`,
+      },
+    });
+    if (response.status === 404) return MOCK_AIRTIME_NETWORKS;
+    const data = await response.json();
+    return data.success ? (data.data as VtuNetwork[]) : MOCK_AIRTIME_NETWORKS;
+  }
+
+  private async fetchDataNetworksFresh(): Promise<VtuNetwork[]> {
+    const response = await fetch(`${this.baseUrl}/data/networks`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.getAuthToken()}`,
+      },
+    });
+    if (response.status === 404) return MOCK_DATA_NETWORKS;
+    const data = await response.json();
+    if (data.success) {
+      const payload = data.data;
+      if (Array.isArray(payload)) {
+        return payload.map((item: any, idx: number) => {
+          const rawCode = typeof item === 'string' ? item : (item?.code ?? item?.id ?? item?.name ?? `NET${idx+1}`);
+          const rawName = typeof item === 'string' ? item : (item?.name ?? rawCode);
+          const status = typeof item === 'object' && item?.status ? item.status : 'active';
+          const codeStr = String(rawCode).toUpperCase();
+          return { id: String(idx + 1), name: String(rawName).toUpperCase(), code: codeStr, status } as VtuNetwork;
+        });
+      }
+      return payload as VtuNetwork[];
+    }
+    return MOCK_DATA_NETWORKS;
+  }
+
+  private async fetchDataBundlesFresh(network: string): Promise<VtuDataBundle[]> {
+    const params = new URLSearchParams({ service_id: network.toLowerCase() });
+    const fullUrl = `${this.baseUrl}/variations/data?${params}`;
+    const response = await fetch(fullUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': this.getAuthToken() ? `Bearer ${this.getAuthToken()}` : '',
+      },
+    });
+    const ct = response.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) return [];
+    const data = await response.json();
+    if (!data.success) return [];
+    const payload = data.data;
+    const rawList = Array.isArray(payload) ? payload : (payload?.data && Array.isArray(payload.data) ? payload.data : []);
+    const mapped = (rawList as any[]).map((item: any, idx: number) => {
+      const id = String(item?.variation_id ?? item?.id ?? '');
+      const planText = item?.data_plan || item?.variation_name || item?.plan_name || item?.plan || '';
+      const price = Number(item?.price ?? item?.variation_amount ?? item?.amount ?? item?.reseller_price ?? item?.selling_price ?? 0);
+      return { id, name: planText || 'Plan', size: planText, validity: item?.validity || '', price, network: network.toUpperCase(), description: item?.description || planText } as VtuDataBundle;
+    }).filter((b: VtuDataBundle) => b.id && /^\d+$/.test(b.id));
+    return mapped;
   }
 }
 

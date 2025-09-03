@@ -12,6 +12,8 @@ interface BettingModalProps {
 
 const fetchProviders = async () => {
       const resp = await fetch(`${API_VTU_URL}/betting/providers`);
+  const ct = resp.headers.get('content-type') || '';
+  if (!ct.includes('application/json')) throw new Error('Unexpected response');
   const data = await resp.json();
   if (!data.success) throw new Error('Failed to load betting providers');
   return data.data as { id: string; name: string }[];
@@ -21,7 +23,7 @@ const BettingModal: React.FC<BettingModalProps> = ({ isOpen, onClose }) => {
   const { isDark } = useTheme();
   const { user } = useAuth();
   const [providers, setProviders] = useState<{ id: string; name: string }[]>([]);
-  const [serviceId, setServiceId] = useState('bet9ja');
+  const [serviceId, setServiceId] = useState('');
   const [customerId, setCustomerId] = useState('');
   const [amount, setAmount] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -31,17 +33,19 @@ const BettingModal: React.FC<BettingModalProps> = ({ isOpen, onClose }) => {
 
   React.useEffect(() => {
     if (!isOpen) return;
-    fetchProviders().then(setProviders).catch(() => setProviders([
-      { id: 'bet9ja', name: 'Bet9ja' },
-      { id: 'betking', name: 'BetKing' },
-      { id: 'sportybet', name: 'SportyBet' },
-    ]));
+    fetchProviders().then(setProviders).catch(() => setProviders([]));
   }, [isOpen]);
+
+  React.useEffect(() => {
+    if (!serviceId && providers.length > 0) {
+      setServiceId(providers[0].id);
+    }
+  }, [providers, serviceId]);
 
   const handleSubmit = async () => {
     setMsg(null);
     const amt = Number(amount);
-    if (!customerId || !amt || amt <= 0) {
+    if (!serviceId || !customerId || !amt || amt <= 0) {
       setMsg({ type: 'error', text: 'Enter customer ID and valid amount' });
       return;
     }
@@ -118,7 +122,7 @@ const BettingModal: React.FC<BettingModalProps> = ({ isOpen, onClose }) => {
             />
             <div className="text-xs mt-1">Wallet: ₦{wallet.toLocaleString?.() || wallet}</div>
           </div>
-          <button onClick={handleSubmit} disabled={isLoading || !customerId || Number(amount) <= 0} className="w-full bg-gradient-to-r from-emerald-600 to-green-600 text-white py-3 rounded-lg font-semibold disabled:opacity-50">
+          <button onClick={handleSubmit} disabled={isLoading || !serviceId || !customerId || Number(amount) <= 0} className="w-full bg-gradient-to-r from-emerald-600 to-green-600 text-white py-3 rounded-lg font-semibold disabled:opacity-50">
             {isLoading ? 'Processing...' : 'Fund Betting Account'}
           </button>
         </div>

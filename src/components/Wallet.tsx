@@ -53,8 +53,11 @@ const Wallet: React.FC = () => {
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<string>('');
 
-  // Get wallet balance from auth context
-  const balance = user?.balance || 0;
+  // Get wallet balance from auth context - use balance field from users table
+  const balance = user?.balance ?? user?.wallet ?? 0;
+  console.log('Wallet component - current user balance:', user?.balance);
+  console.log('Wallet component - current user wallet:', user?.wallet);
+  console.log('Wallet component - current balance variable:', balance);
   const [totalSpent, setTotalSpent] = useState<number>(0);
   const [totalTopUps, setTotalTopUps] = useState<number>(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -159,8 +162,16 @@ const Wallet: React.FC = () => {
       const response = await apiService.getUserProfile();
       if (response.status === 'success' && response.data) {
         const userData = response.data;
+        // Update wallet balance in auth context - check multiple possible field names
+        console.log('Wallet component - userData received:', userData);
+        const walletBalance = userData.wallet ?? (userData as any).balance ?? (userData as any).wallet_balance ?? 0;
+        console.log('Wallet component - extracted balance:', walletBalance);
+        console.log('Wallet component - calling updateWalletBalance with:', walletBalance);
+        
         // Update wallet balance in auth context
-        updateWalletBalance(userData.wallet || 0);
+        updateWalletBalance(walletBalance);
+        
+        console.log('Wallet component - updateWalletBalance called');
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
