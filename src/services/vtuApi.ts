@@ -147,18 +147,26 @@ class VtuApiService {
       }
 
       const data = await response.json();
+      // Debug: inspect raw response from backend to verify shape
+      console.log('VTU getDataNetworks raw:', data);
       
       if (data.success) {
-        // Backend returns an array of service_id strings (e.g., ['mtn','glo',...])
-        if (Array.isArray(data.data)) {
-          return (data.data as string[]).map((code, idx) => ({
-            id: String(idx + 1),
-            name: code.toUpperCase(),
-            code: code.toUpperCase(),
-            status: 'active',
-          }));
-        }
-        return data.data;
+         const payload = data.data;
+         if (Array.isArray(payload)) {
+           return payload.map((item: any, idx: number) => {
+             const rawCode = typeof item === 'string' ? item : (item?.code ?? item?.id ?? item?.name ?? `NET${idx+1}`);
+             const rawName = typeof item === 'string' ? item : (item?.name ?? rawCode);
+             const status = typeof item === 'object' && item?.status ? item.status : 'active';
+             const codeStr = String(rawCode).toUpperCase();
+             return {
+               id: String(idx + 1),
+               name: String(rawName).toUpperCase(),
+               code: codeStr,
+               status,
+             } as VtuNetwork;
+           });
+         }
+         return payload;
       } else {
         throw new Error(data.message || 'Failed to fetch data networks');
       }
@@ -174,9 +182,13 @@ class VtuApiService {
    */
   async getDataBundles(network: string): Promise<VtuDataBundle[]> {
     try {
+      console.log('VTU getDataBundles called with network:', network);
       // Proxy to backend variations endpoint which talks to VTU.ng
       const params = new URLSearchParams({ service_id: network.toLowerCase() });
-      const response = await fetch(`${this.baseUrl}/variations/data?${params}`, {
+      console.log('VTU getDataBundles URL params:', params.toString());
+      const fullUrl = `${this.baseUrl}/variations/data?${params}`;
+      console.log('VTU getDataBundles full URL:', fullUrl);
+      const response = await fetch(fullUrl, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -190,20 +202,41 @@ class VtuApiService {
         throw new Error(`Unexpected response type: ${ct || 'unknown'}`);
       }
       const data = await response.json();
+      // Debug: inspect raw variations from backend to verify fields
+      console.log('VTU getDataBundles raw:', data);
       
       if (data.success) {
-        // Map VTU.ng format to VtuDataBundle[]
+        // Map backend response format to VtuDataBundle[]
         const payload = data.data;
-        const list = Array.isArray(payload?.data) ? payload.data : [];
-        return list.map((item: any) => ({
-          id: String(item.variation_id),
-          name: item.data_plan || item.service_name || 'Plan',
-          size: item.data_plan || '',
+        console.log('VTU getDataBundles payload:', payload);
+        
+        // Handle nested data structure: data.data.data or data.data
+        const list = Array.isArray(payload) ? payload : (payload?.data && Array.isArray(payload.data) ? payload.data : []);
+        console.log('VTU getDataBundles list:', list);
+        
+        const mappedBundles = list.map((item: any, idx: number) => ({
+          id: String(
+            item?.variation_id ??
+            item?.id ??
+            `${network.toUpperCase()}-${item?.plan ?? idx}`
+          ),
+          name: item.plan_name || item.plan || item.name || 'Plan',
+          size: item.plan || '',
           validity: '',
-          price: Number(item.reseller_price ?? item.price ?? 0),
+          price: Number(
+            item.amount ??
+            item.reseller_price ??
+            item.selling_price ??
+            item.variation_amount ??
+            item.price ??
+            0
+          ),
           network: network.toUpperCase(),
-          description: item.data_plan || '',
+          description: item.plan_name || item.plan || '',
         }));
+        
+        console.log('VTU getDataBundles mapped:', mappedBundles);
+        return mappedBundles;
       } else {
         throw new Error(data.message || 'Failed to fetch data bundles');
       }
@@ -263,13 +296,22 @@ class VtuApiService {
    */
   async purchaseDataBundle(request: VtuPurchaseRequest): Promise<VtuPurchaseResponse> {
     try {
-      // Adapt request to backend payload: { service_id, phone, variation_id, amount }
+      // Validate required fields
+      if (!request.network) throw new Error('Network is required');
+      if (!request.phone) throw new Error('Phone number is required');
+      if (!request.plan) throw new Error('Plan is required');
+      if (!request.amount || request.amount <= 0) throw new Error('Valid amount is required');
+
+      // Adapt request to backend payload: { network, phone, plan, plan_name, amount }
       const payload = {
-        service_id: (request.network || '').toLowerCase(),
+        network: (request.network || '').toLowerCase(),
         phone: request.phone,
-        variation_id: request.plan || '',
-        amount: request.amount ?? 0,
+        plan: request.plan,
+        plan_name: request.plan_name || request.plan,
+        amount: request.amount,
       };
+
+      console.log('Data bundle purchase payload:', payload);
       const response = await fetch(`${this.baseUrl}/data/purchase`, {
         method: 'POST',
         headers: {
@@ -279,32 +321,24 @@ class VtuApiService {
         body: JSON.stringify(payload),
       });
 
-      if (response.status === 404) {
-        console.warn('VTU data purchase endpoint not found, returning mock response');
-        return {
-          reference: `DATA${Date.now()}`,
-          network: request.network,
-          phone: request.phone,
-          amount: request.amount || 0,
-          status: 'pending',
-          message: 'Mock data purchase - endpoint not implemented',
-          plan: request.plan,
-          plan_name: request.plan_name,
-        };
+      const ct = response.headers.get('content-type') || '';
+      if (!ct.includes('application/json')) {
+        throw new Error(`Unexpected response type: ${ct || 'unknown'}`);
       }
 
       const data = await response.json();
-      
+      console.log('Backend response:', data);
+
       if (data.success) {
         return {
           reference: data.data.reference,
-          network: payload.service_id,
+          network: payload.network,
           phone: payload.phone,
-          amount: payload.amount,
+          amount: request.amount,
           status: 'success',
           message: 'Data bundle purchase request sent',
-          plan: payload.variation_id,
-          plan_name: request.plan_name,
+          plan: payload.plan,
+          plan_name: payload.plan_name,
         };
       } else {
         throw new Error(data.message || 'Failed to purchase data bundle');

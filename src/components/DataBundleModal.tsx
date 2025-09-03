@@ -32,7 +32,7 @@ const DataBundleModal: React.FC<DataBundleModalProps> = ({ isOpen, onClose }) =>
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [phoneValidation, setPhoneValidation] = useState<{ isValid: boolean; message: string } | null>(null);
-  const walletBalance = typeof user?.balance === 'number' ? user.wallet : 0;
+  const walletBalance = typeof user?.wallet === 'number' ? user.wallet : 0;
 
   // Fetch bundles when network changes
   useEffect(() => {
@@ -88,6 +88,14 @@ const DataBundleModal: React.FC<DataBundleModalProps> = ({ isOpen, onClose }) =>
     setSuccess(null);
 
     try {
+      console.log('Sending purchase request:', {
+        network: selectedNetwork,
+        phone: phoneNumber,
+        plan: selectedBundle,
+        plan_name: bundle.name,
+        amount: bundle.price
+      });
+      
       const result = await purchaseDataBundle({
         network: selectedNetwork,
         phone: phoneNumber,
@@ -278,7 +286,7 @@ const DataBundleModal: React.FC<DataBundleModalProps> = ({ isOpen, onClose }) =>
           {/* Purchase Button */}
           <button
             onClick={handlePurchase}
-            disabled={isLoading || !selectedNetwork || !selectedBundle || !phoneNumber || (phoneValidation && !phoneValidation.isValid)}
+            disabled={isLoading || !selectedNetwork || !selectedBundle || !phoneNumber || (phoneValidation !== null && !phoneValidation.isValid)}
             className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           >
             {isLoading ? (

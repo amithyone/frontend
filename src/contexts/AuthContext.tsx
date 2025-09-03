@@ -45,11 +45,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (resp.ok) {
             const freshUser = await resp.json();
             // Expect wallet on the model; default to 0 if missing
+            // Check multiple possible field names: wallet, balance, wallet_balance
+            const walletBalance = freshUser?.wallet ?? freshUser?.balance ?? freshUser?.wallet_balance ?? 0;
             const normalized: AuthUser = {
               id: freshUser?.id,
               name: freshUser?.name,
               email: freshUser?.email,
-              wallet: typeof freshUser?.wallet === 'number' ? freshUser.wallet : Number(freshUser?.wallet ?? 0),
+              wallet: typeof walletBalance === 'number' ? walletBalance : Number(walletBalance ?? 0),
             };
             setUser((prev) => ({ ...(prev || {} as any), ...normalized }));
           }
@@ -103,12 +105,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Ensure user object has wallet balance
     if (newUser) {
-      if (newUser.wallet !== undefined) {
-        // Wallet balance is already in user object
-      } else if (data?.data?.wallet !== undefined) {
-        newUser = { ...newUser, wallet: data.data.wallet };
-      } else if (data?.wallet !== undefined) {
-        newUser = { ...newUser, wallet: data.wallet };
+      // Check multiple possible field names: wallet, balance, wallet_balance
+      const walletBalance = newUser.wallet ?? newUser.balance ?? newUser.wallet_balance ?? 
+                           data?.data?.wallet ?? data?.data?.balance ?? data?.data?.wallet_balance ??
+                           data?.wallet ?? data?.balance ?? data?.wallet_balance ?? 0;
+      
+      if (walletBalance !== undefined) {
+        newUser = { ...newUser, wallet: walletBalance };
       } else {
         newUser = { ...newUser, wallet: 0 };
       }
@@ -176,11 +179,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       if (resp.ok) {
         const freshUser = await resp.json();
+        // Check multiple possible field names: wallet, balance, wallet_balance
+        const walletBalance = freshUser?.wallet ?? freshUser?.balance ?? freshUser?.wallet_balance ?? 0;
         const normalized: AuthUser = {
           id: freshUser?.id,
           name: freshUser?.name,
           email: freshUser?.email,
-          wallet: typeof freshUser?.wallet === 'number' ? freshUser.wallet : Number(freshUser?.wallet ?? 0),
+          wallet: typeof walletBalance === 'number' ? walletBalance : Number(walletBalance ?? 0),
         };
         setUser((prev) => ({ ...(prev || {} as any), ...normalized }));
       }
