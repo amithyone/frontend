@@ -636,7 +636,7 @@ class SmsApiService {
    * Get countries and NGN prices for a given service
    */
   async getCountriesByService(service: string, provider?: string): Promise<Array<{ country_id: string; country_name: string; cost: number; count: number; provider: string }>> {
-    const params: any = {};
+    const params: any = { service };
     if (provider) params.provider = provider;
     const response = await fetch(`${this.baseUrl}/sms/countries-by-service?` + new URLSearchParams(params), {
       method: 'GET',

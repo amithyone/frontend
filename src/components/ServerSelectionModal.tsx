@@ -111,6 +111,7 @@ const ServerSelectionModal: React.FC<ServerSelectionModalProps> = ({ isOpen, onC
       const cachedProviders = cacheGet('sms:providers');
       if (cachedProviders) {
         setServers(cachedProviders);
+        // Keep loading true for background refresh, UI will not block since servers.length > 0
       }
       const resp = await fetch(`${API_BASE_URL}/sms/providers`, {
         method: 'GET',
@@ -306,7 +307,7 @@ const ServerSelectionModal: React.FC<ServerSelectionModalProps> = ({ isOpen, onC
         <div className="p-6">
           {step === 'server' && (
             <>
-          {loading ? (
+          {loading && servers.length === 0 ? (
                 <div className={`text-center py-10 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Loading servers...</div>
           ) : (
             <>
