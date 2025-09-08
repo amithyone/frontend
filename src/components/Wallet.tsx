@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
+import TopUpModal from './TopUpModal';
 import { 
   Wallet as WalletIcon, 
   Plus, 
@@ -14,8 +15,6 @@ import {
   CreditCard,
   ArrowUpRight,
   ArrowDownLeft,
-  Filter,
-  Calendar,
   DollarSign,
   XCircle
 } from 'lucide-react';
@@ -42,7 +41,7 @@ const Wallet: React.FC = () => {
   const { isDark } = useTheme();
   const { user, updateWalletBalance } = useAuth();
   const [activeTab, setActiveTab] = useState<'overview' | 'topup' | 'history'>('overview');
-  const [showTopUpModal, setShowTopUpModal] = useState(false);
+  const [showTopUpModal, setShowTopUpModal] = useState(false); // reserved for future modal usage
   const [selectedAmount, setSelectedAmount] = useState<string>('');
   const [generatedAccount, setGeneratedAccount] = useState<string>('');
   const [accountName, setAccountName] = useState<string>('');
@@ -85,7 +84,8 @@ const Wallet: React.FC = () => {
     setIsGenerating(true);
     try {
       console.log('Calling PayVibe API with amount:', selectedAmount);
-      const response = await apiService.initiateTopUp({ amount: parseInt(selectedAmount), user_id: 1 });
+      const userId = (user as any)?.id || (user as any)?.user_id || 0;
+      const response = await apiService.initiateTopUp({ amount: parseInt(selectedAmount), user_id: userId });
       
       console.log('Full PayVibe response:', response);
       
@@ -102,6 +102,8 @@ const Wallet: React.FC = () => {
         setBankName(response.data.bank_name);
         setPaymentReference(response.data.reference);
         setPaymentStatus('pending');
+        // Begin polling payment status every 10s for 3 minutes
+        startStatusPolling(response.data.reference);
       } else {
         console.error('PayVibe API error:', response);
         alert(response.message || 'Failed to generate account number');
@@ -137,6 +139,33 @@ const Wallet: React.FC = () => {
     } finally {
       setIsCheckingStatus(false);
     }
+  };
+
+  // Polling helper
+  const startStatusPolling = (reference: string) => {
+    let attempts = 0;
+    const maxAttempts = 18; // ~3 minutes at 10s interval
+    const intervalId = setInterval(async () => {
+      attempts += 1;
+      try {
+        const resp = await apiService.checkPaymentStatus({ reference });
+        if (resp.status === 'success' && resp.data) {
+          setPaymentStatus(resp.data.status || 'pending');
+          if (resp.data.status === 'completed') {
+            clearInterval(intervalId);
+            alert('Payment completed! Your wallet has been credited.');
+            fetchUserData();
+          } else if (resp.data.status === 'failed') {
+            clearInterval(intervalId);
+          }
+        }
+      } catch (e) {
+        // ignore transient errors during polling
+      }
+      if (attempts >= maxAttempts) {
+        clearInterval(intervalId);
+      }
+    }, 10000);
   };
 
   // Calculate PayVibe charges
@@ -314,6 +343,16 @@ const Wallet: React.FC = () => {
           <span>Top Up Wallet</span>
         </button>
       </div>
+      {/* Top-up Modal */}
+      <TopUpModal
+        isOpen={showTopUpModal}
+        onClose={() => setShowTopUpModal(false)}
+        onCredited={() => {
+          // refresh profile and transactions once credited
+          fetchUserData();
+          fetchTransactions();
+        }}
+      />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 gap-4">

@@ -207,10 +207,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    try {
+      const currentToken = localStorage.getItem('auth_token') || token;
+      if (currentToken) {
+        const base = API_AUTH_URL;
+        await fetch(`${base}/logout`, {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${currentToken}`,
+          },
+        }).catch(() => {});
+      }
+    } catch {}
+
+    try {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
+    } catch {}
+
     setToken(null);
     setUser(null);
-  }, []);
+
+    try {
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+    } catch {}
+  }, [token]);
 
   const value = useMemo<AuthContextValue>(() => ({
     isAuthenticated: Boolean(token),

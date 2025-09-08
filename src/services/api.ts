@@ -6,6 +6,9 @@ export const API_VTU_URL = (import.meta as any)?.env?.VITE_API_VTU_URL || 'http:
 export const API_SMS_URL = (import.meta as any)?.env?.VITE_API_SMS_URL || 'http://localhost:8000';
 export const API_PROXY_URL = (import.meta as any)?.env?.VITE_API_PROXY_URL || 'http://localhost:8000/proxy';
 export const API_WALLET_URL = (import.meta as any)?.env?.VITE_API_WALLET_URL || 'http://localhost:8000/wallet';
+// PayVibe optional absolute overrides
+export const PAYVIBE_INITIATE_URL = (import.meta as any)?.env?.VITE_PAYVIBE_INITIATE_URL || '';
+export const PAYVIBE_VERIFY_URL = (import.meta as any)?.env?.VITE_PAYVIBE_VERIFY_URL || '';
 
 export type ApiStatus = 'success' | 'error';
 
@@ -98,6 +101,23 @@ class ApiService {
     return json;
   }
 
+  private async requestAbsolute<T>(absoluteUrl: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...(options.headers as Record<string, string> | undefined),
+    };
+    const token = localStorage.getItem('auth_token');
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const init: RequestInit = { ...options, headers };
+    const resp = await fetch(absoluteUrl, init);
+    if (!resp.ok) {
+      console.error(`HTTP ${resp.status} for ${absoluteUrl}`);
+    }
+    const json = (await resp.json()) as ApiResponse<T>;
+    return json;
+  }
+
   // Auth
   public async register(body: RegisterBody, init?: RequestInit) {
     return this.request<ApiResponse<AuthResponse>['data']>('/register', {
@@ -160,7 +180,8 @@ class ApiService {
   }
 
   public async initiateTopUp(body: InitiateTopUpBody, init?: RequestInit) {
-    return this.request<InitiateTopUpData>('/payvibe-initiate.php', {
+    const absolute = PAYVIBE_INITIATE_URL || `${API_BASE_URL}/payvibe-initiate.php`;
+    return this.requestAbsolute<InitiateTopUpData>(absolute, {
       method: 'POST',
       body: JSON.stringify(body),
       ...init,
@@ -168,7 +189,8 @@ class ApiService {
   }
 
   public async checkPaymentStatus(body: VerifyPaymentBody, init?: RequestInit) {
-    return this.request<VerifyPaymentData>('/payvibe-verify.php', {
+    const absolute = PAYVIBE_VERIFY_URL || `${API_BASE_URL}/payvibe-verify.php`;
+    return this.requestAbsolute<VerifyPaymentData>(absolute, {
       method: 'POST',
       body: JSON.stringify(body),
       ...init,
