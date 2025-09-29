@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Toaster, toast } from 'sonner';
 import { X, Server, CheckCircle, MapPin, Activity, Globe, Smartphone, Phone, Clock } from 'lucide-react';
-import { API_BASE_URL } from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 import { smsApiService, SmsService as SmsServiceType, SmsCountry } from '../services/smsApi';
 
@@ -40,6 +39,8 @@ const ServerSelectionModal: React.FC<ServerSelectionModalProps> = ({ isOpen, onC
   const [orderId, setOrderId] = useState<string>('');
   const [phoneNumber, setPhoneNumber] = useState<string>('');
   const [error, setError] = useState<string>('');
+  const [serviceQuery, setServiceQuery] = useState<string>('');
+  const [countryQuery, setCountryQuery] = useState<string>('');
 
   // Simple localStorage cache with TTL
   const cacheGet = (key: string): any | null => {
@@ -62,30 +63,30 @@ const ServerSelectionModal: React.FC<ServerSelectionModalProps> = ({ isOpen, onC
   // Prewarm caches in background
   const prewarm = async () => {
     try {
-      const token = localStorage.getItem('auth_token') || '';
-      if (!token) return;
-      // Prewarm providers
-      await fetch(`${API_BASE_URL}/sms/providers`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      }).then(r => r.json()).then(j => {
-        const list: any[] = Array.isArray(j?.data) ? j.data : [];
-        const ordered = list.map((s: any, idx: number) => ({
-          id: s.id ?? idx + 1,
-          name: s.name || s.provider || 'SMS Provider',
-          success_rate: s.success_rate ?? 95,
-          total_orders: s.total_orders ?? 0,
-          status: s.status || 'available',
-          location: s.region || s.location || 'Global',
-          provider: nameToProviderSlug(s.name || s.provider || ''),
+      // Prewarm servers via the new getServers method
+      const servers = await smsApiService.getServers();
+      const ordered = servers
+        .sort((a, b) => {
+          if (a.priority !== b.priority) return (a.priority || 999) - (b.priority || 999);
+          return (b.success_rate || 0) - (a.success_rate || 0);
+        })
+        .map((server: any) => ({
+          id: server.id,
+          name: server.display_name || server.name || 'SMS Provider',
+          success_rate: server.success_rate || 95,
+          total_orders: server.total_orders || 0,
+          successful_orders: server.successful_orders || 0,
+          status: server.status || 'active',
+          location: server.location || server.region || 'Global',
+          provider: server.provider || 'tiger_sms',
+          priority: server.priority || 999,
         }));
-        cacheSet('sms:providers', ordered, 5 * 60 * 1000);
-        // Prewarm first provider countries
-        const first = ordered[0]?.provider;
-        if (first) {
-          smsApiService.getCountries(first).then(c => cacheSet(`sms:countries:${first}`, c, 5 * 60 * 1000)).catch(() => {});
-        }
-      }).catch(() => {});
+      cacheSet('sms:servers', ordered, 5 * 60 * 1000);
+      // Prewarm first provider countries
+      const first = ordered[0]?.provider;
+      if (first) {
+        smsApiService.getCountries(first).then(c => cacheSet(`sms:countries:${first}`, c, 5 * 60 * 1000)).catch(() => {});
+      }
     } catch {}
   };
 
@@ -106,45 +107,43 @@ const ServerSelectionModal: React.FC<ServerSelectionModalProps> = ({ isOpen, onC
   const loadServers = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('auth_token') || localStorage.getItem('authToken') || '';
       // Serve from cache immediately
-      const cachedProviders = cacheGet('sms:providers');
-      if (cachedProviders) {
-        setServers(cachedProviders);
+      const cachedServers = cacheGet('sms:servers');
+      if (cachedServers) {
+        setServers(cachedServers);
         // Keep loading true for background refresh, UI will not block since servers.length > 0
       }
-      const resp = await fetch(`${API_BASE_URL}/sms/providers`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      });
-      const data = await resp.json();
-      const list: any[] = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-      const ordered = list
+      
+      // Use the new getServers method that calls /api/servers
+      const serverList = await smsApiService.getServers();
+      
+      const ordered = serverList
         .sort((a, b) => {
-          const an = (a.name || a.provider || '').toLowerCase();
-          const bn = (b.name || b.provider || '').toLowerCase();
-          const at = an.includes('tiger') ? -1 : 0;
-          const bt = bn.includes('tiger') ? -1 : 0;
-          if (at !== bt) return at - bt;
-          return an.localeCompare(bn);
+          // Sort by priority first, then by success rate
+          if (a.priority !== b.priority) return (a.priority || 999) - (b.priority || 999);
+          return (b.success_rate || 0) - (a.success_rate || 0);
         })
-        .map((s, idx) => ({
-          id: s.id ?? idx + 1,
-          name: s.name || s.provider || 'SMS Provider',
-          success_rate: s.success_rate ?? 95,
-          total_orders: s.total_orders ?? 0,
-          status: s.status || 'available',
-          location: s.region || s.location || 'Global',
-          provider: nameToProviderSlug(s.name || s.provider || ''),
+        .map((server: any) => ({
+          id: server.id,
+          name: server.display_name || server.name || 'SMS Provider',
+          success_rate: server.success_rate || 95,
+          total_orders: server.total_orders || 0,
+          successful_orders: server.successful_orders || 0,
+          status: server.status || 'active',
+          location: server.location || server.region || 'Global',
+          provider: server.provider || 'tiger_sms',
+          priority: server.priority || 999,
         }));
+      
       setServers(ordered);
-      cacheSet('sms:providers', ordered, 5 * 60 * 1000);
+      cacheSet('sms:servers', ordered, 5 * 60 * 1000);
     } catch (error) {
       console.error('Error loading servers:', error);
+      // Fallback to mock data if API fails
       setServers([
-        { id: 1, name: 'Tiger SMS', success_rate: 98, total_orders: 1250, status: 'active', location: 'Global', provider: 'tiger_sms' },
-        { id: 2, name: '5SIM', success_rate: 96, total_orders: 1040, status: 'active', location: 'Global', provider: '5sim' },
-        { id: 3, name: 'Dassy', success_rate: 94, total_orders: 800, status: 'active', location: 'Global', provider: 'dassy' },
+        { id: 1, name: 'Tiger SMS', success_rate: 98.5, total_orders: 1250, successful_orders: 1188, status: 'active', location: 'Global', provider: 'tiger_sms', priority: 1 },
+        { id: 2, name: '5SIM', success_rate: 96, total_orders: 1040, successful_orders: 998, status: 'active', location: 'Global', provider: '5sim', priority: 2 },
+        { id: 3, name: 'Dassy', success_rate: 94, total_orders: 800, successful_orders: 752, status: 'active', location: 'Global', provider: 'dassy', priority: 3 },
       ]);
     } finally {
       setLoading(false);
@@ -160,13 +159,15 @@ const ServerSelectionModal: React.FC<ServerSelectionModalProps> = ({ isOpen, onC
       const cachedCountries = cacheGet(countriesCacheKey);
       const scopedCountries = cachedCountries || await smsApiService.getCountries(provider);
       const initialCountry = (
-        scopedCountries.find(c => (c.name || '').toLowerCase() === 'nigeria') || scopedCountries[0]
+        scopedCountries.find((c: SmsCountry) => (c.name || '').toLowerCase() === 'nigeria') || scopedCountries[0]
       )?.code || '';
       let providerServices: SmsServiceType[] = [];
       if (initialCountry) {
         const svcCacheKey = `sms:services:${provider}:${initialCountry}`;
         const cachedSvcs = cacheGet(svcCacheKey);
-        providerServices = cachedSvcs || await smsApiService.getServices(initialCountry, provider);
+        providerServices = (cachedSvcs || await smsApiService.getServices(initialCountry, provider))
+          // Hard filter to ensure only services for the selected provider are shown
+          .filter((svc: any) => (svc?.provider || provider) === provider);
         if (!cachedSvcs) cacheSet(svcCacheKey, providerServices, 60 * 1000);
       }
       setCountries(scopedCountries);
@@ -192,7 +193,9 @@ const ServerSelectionModal: React.FC<ServerSelectionModalProps> = ({ isOpen, onC
       const provider = selectedServer?.provider || nameToProviderSlug(selectedServer?.name || '');
       const svcCacheKey = `sms:services:${provider}:${countryCode}`;
       const cachedSvcs = cacheGet(svcCacheKey);
-      const svc = cachedSvcs || await smsApiService.getServices(countryCode, provider);
+      const svc = (cachedSvcs || await smsApiService.getServices(countryCode, provider))
+        // Hard filter to ensure only services for the selected provider are shown
+        .filter((row: any) => (row?.provider || provider) === provider);
       setServices(svc);
       setSelectedService(svc[0]?.service || '');
       if (!cachedSvcs) cacheSet(svcCacheKey, svc, 60 * 1000);
@@ -340,8 +343,11 @@ const ServerSelectionModal: React.FC<ServerSelectionModalProps> = ({ isOpen, onC
                             <div className={`flex items-center gap-1 text-sm ${isDark ? 'text-green-400' : 'text-green-600'} mb-1`}>
                               <CheckCircle className="w-4 h-4" /> {server.success_rate}% Success
                         </div>
+                            <div className={`${isDark ? 'text-gray-400' : 'text-gray-500'} text-xs flex items-center gap-1 mb-1`}>
+                              <Activity className="w-3.5 h-3.5" /> {server.total_orders} total orders
+                        </div>
                             <div className={`${isDark ? 'text-gray-400' : 'text-gray-500'} text-xs flex items-center gap-1`}>
-                              <Activity className="w-3.5 h-3.5" /> {server.total_orders} orders
+                              <CheckCircle className="w-3.5 h-3.5" /> {server.successful_orders} successful
                         </div>
                       </div>
                     </div>
@@ -388,8 +394,27 @@ const ServerSelectionModal: React.FC<ServerSelectionModalProps> = ({ isOpen, onC
                         <Smartphone className="w-4 h-4" />
                         <span className="font-semibold">Service</span>
                       </div>
+                      <input
+                        type="text"
+                        value={serviceQuery}
+                        onChange={(e) => setServiceQuery(e.target.value)}
+                        placeholder="Quick search services..."
+                        className={`w-full mb-3 p-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          isDark ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+                        }`}
+                      />
                       <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                        {services.map((svc) => (
+                        {services
+                          .filter((svc) => {
+                            if (!serviceQuery) return true;
+                            const q = serviceQuery.toLowerCase();
+                            return (
+                              (svc.name || '').toLowerCase().includes(q) ||
+                              (svc.service || '').toLowerCase().includes(q) ||
+                              (svc.provider_name || '').toLowerCase().includes(q)
+                            );
+                          })
+                          .map((svc) => (
                           <label
                             key={svc.service}
                             className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer ${
@@ -412,7 +437,15 @@ const ServerSelectionModal: React.FC<ServerSelectionModalProps> = ({ isOpen, onC
                             />
                           </label>
                         ))}
-                        {services.length === 0 && (
+                        {services.filter((svc) => {
+                          if (!serviceQuery) return true;
+                          const q = serviceQuery.toLowerCase();
+                          return (
+                            (svc.name || '').toLowerCase().includes(q) ||
+                            (svc.service || '').toLowerCase().includes(q) ||
+                            (svc.provider_name || '').toLowerCase().includes(q)
+                          );
+                        }).length === 0 && (
                           <div className={`${isDark ? 'text-gray-400' : 'text-gray-600'} text-sm`}>No services found for this selection.</div>
                         )}
                       </div>
@@ -423,29 +456,50 @@ const ServerSelectionModal: React.FC<ServerSelectionModalProps> = ({ isOpen, onC
                         <Globe className="w-4 h-4" />
                         <span className="font-semibold">Country</span>
                       </div>
+                      <input
+                        type="text"
+                        value={countryQuery}
+                        onChange={(e) => setCountryQuery(e.target.value)}
+                        placeholder="Quick search countries..."
+                        className={`w-full mb-3 p-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          isDark ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+                        }`}
+                      />
                       <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                        {(filteredCountries.length > 0 ? filteredCountries.map(c => ({ code: c.country_id, name: c.country_name })) : countries).map((c) => (
-                          <label
-                            key={c.code}
-                            className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer ${
-                              selectedCountry === c.code
-                                ? (isDark ? 'bg-blue-900/20 border-blue-700' : 'bg-blue-50 border-blue-300')
-                                : (isDark ? 'bg-gray-900/40 border-gray-700 hover:bg-gray-900/60' : 'bg-white border-gray-200 hover:bg-white')
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="text-lg">{c.flag || '🌍'}</span>
-                              <div className={`${isDark ? 'text-white' : 'text-gray-900'} font-medium`}>{c.name} <span className={`${isDark ? 'text-gray-400' : 'text-gray-600'} text-xs`}>({c.code})</span></div>
-                            </div>
-                            <input
-                              type="radio"
-                              name="country"
-                              className="hidden"
-                              checked={selectedCountry === c.code}
-                              onChange={() => onCountryChange(c.code)}
-                            />
-                          </label>
-                        ))}
+                        {(filteredCountries.length > 0 ? filteredCountries.map((c: { country_id: string; country_name: string }) => ({ code: c.country_id, name: c.country_name })) : countries)
+                          .filter((c: any) => {
+                            if (!countryQuery) return true;
+                            const q = countryQuery.toLowerCase();
+                            return (
+                              (c.name || '').toLowerCase().includes(q) ||
+                              (c.code || '').toLowerCase().includes(q)
+                            );
+                          })
+                          .map((c: any) => {
+                          const flag = typeof c.flag === 'string' ? c.flag : '🌍';
+                          return (
+                            <label
+                              key={c.code}
+                              className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer ${
+                                selectedCountry === c.code
+                                  ? (isDark ? 'bg-blue-900/20 border-blue-700' : 'bg-blue-50 border-blue-300')
+                                  : (isDark ? 'bg-gray-900/40 border-gray-700 hover:bg-gray-900/60' : 'bg-white border-gray-200 hover:bg-white')
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg">{flag}</span>
+                                <div className={`${isDark ? 'text-white' : 'text-gray-900'} font-medium`}>{c.name} <span className={`${isDark ? 'text-gray-400' : 'text-gray-600'} text-xs`}>({c.code})</span></div>
+                              </div>
+                              <input
+                                type="radio"
+                                name="country"
+                                className="hidden"
+                                checked={selectedCountry === c.code}
+                                onChange={() => onCountryChange(c.code)}
+                              />
+                            </label>
+                          );
+                        })}
                         {countries.length === 0 && (
                           <div className={`${isDark ? 'text-gray-400' : 'text-gray-600'} text-sm`}>No countries available.</div>
                         )}
@@ -544,7 +598,7 @@ const ServerSelectionModal: React.FC<ServerSelectionModalProps> = ({ isOpen, onC
                 <Clock className="w-4 h-4" />
                 <span className="font-semibold">Waiting for SMS</span>
               </div>
-              <div className={`${isDark ? 'text-gray-300' : 'text-gray-700'}`}>We are polling your order for the SMS code. You can keep this modal open or close it; your Inbox will update once the code arrives.</div>
+              <div className={`${isDark ? 'text-gray-300' : 'text-gray-700'}`}>We are polling your order for the SMS code. Use the phone number below to request for verification code. You can keep this modal open or close it; your Inbox will update once the code arrives.</div>
               {phoneNumber ? (
                 <div className={`mt-4 p-4 rounded-lg ${isDark ? 'bg-gray-900/40 border border-gray-700 text-white' : 'bg-white border border-gray-200 text-gray-900'}`}>
                   <div className="text-sm opacity-70 mb-1">Phone Number</div>

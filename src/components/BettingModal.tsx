@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { API_VTU_URL } from '../services/api';
 import { X, DollarSign, CheckCircle, AlertCircle } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
@@ -28,19 +28,45 @@ const BettingModal: React.FC<BettingModalProps> = ({ isOpen, onClose }) => {
   const [amount, setAmount] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [recentCustomers, setRecentCustomers] = useState<string[]>([]);
 
-  const wallet = typeof user?.balance === 'number' ? user.wallet : 0;
+  const wallet = typeof user?.wallet === 'number' ? user.wallet : 0;
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isOpen) return;
     fetchProviders().then(setProviders).catch(() => setProviders([]));
   }, [isOpen]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!serviceId && providers.length > 0) {
       setServiceId(providers[0].id);
     }
   }, [providers, serviceId]);
+
+  // load recent customer IDs on open
+  useEffect(() => {
+    if (!isOpen) return;
+    try {
+      const stored = localStorage.getItem('betting_customer_history');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) setRecentCustomers(parsed.filter((s) => typeof s === 'string'));
+      }
+    } catch {}
+  }, [isOpen]);
+
+  const addCustomerToHistory = (id: string) => {
+    const cleaned = (id || '').trim();
+    if (!cleaned) return;
+    const next = [cleaned, ...recentCustomers.filter((p) => p !== cleaned)].slice(0, 6);
+    setRecentCustomers(next);
+    try { localStorage.setItem('betting_customer_history', JSON.stringify(next)); } catch {}
+  };
+
+  const clearCustomerHistory = () => {
+    setRecentCustomers([]);
+    try { localStorage.removeItem('betting_customer_history'); } catch {}
+  };
 
   const handleSubmit = async () => {
     setMsg(null);
@@ -70,6 +96,7 @@ const BettingModal: React.FC<BettingModalProps> = ({ isOpen, onClose }) => {
       const data = await resp.json();
       if (!resp.ok || !data.success) throw new Error(data.message || 'Betting funding failed');
       setMsg({ type: 'success', text: 'Betting account funded successfully' });
+      addCustomerToHistory(customerId);
       setCustomerId('');
       setAmount('');
     } catch (e: any) {
@@ -108,6 +135,28 @@ const BettingModal: React.FC<BettingModalProps> = ({ isOpen, onClose }) => {
           <div>
             <label className="block text-sm font-medium mb-2">Customer ID</label>
             <input value={customerId} onChange={(e) => setCustomerId(e.target.value)} className={`w-full p-3 border rounded-lg ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`} placeholder="Enter customer ID" />
+            {recentCustomers.length > 0 && (
+              <div className="mt-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-gray-500">Recent customer IDs</span>
+                  <button type="button" onClick={clearCustomerHistory} className="text-xs text-red-500 hover:underline">Clear</button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {recentCustomers.map((id) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setCustomerId(id)}
+                      className={`px-2 py-1 rounded border text-sm ${
+                        isDark ? 'bg-gray-700 border-gray-600 hover:border-emerald-400' : 'bg-gray-50 border-gray-200 hover:border-emerald-400'
+                      }`}
+                    >
+                      {id}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium mb-2">Amount</label>

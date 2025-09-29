@@ -33,6 +33,7 @@ const DataBundleModal: React.FC<DataBundleModalProps> = ({ isOpen, onClose }) =>
   const [success, setSuccess] = useState<string | null>(null);
   const [phoneValidation, setPhoneValidation] = useState<{ isValid: boolean; message: string } | null>(null);
   const walletBalance = typeof user?.wallet === 'number' ? user.wallet : 0;
+  const [recentPhones, setRecentPhones] = useState<string[]>([]);
 
   // Fetch bundles when network changes
   useEffect(() => {
@@ -50,6 +51,33 @@ const DataBundleModal: React.FC<DataBundleModalProps> = ({ isOpen, onClose }) =>
       setPhoneValidation(null);
     }
   }, [selectedNetwork, phoneNumber]);
+
+  // Load recent phone numbers on open
+  useEffect(() => {
+    if (!isOpen) return;
+    try {
+      const stored = localStorage.getItem('data_phone_history');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setRecentPhones(parsed.filter((p) => typeof p === 'string'));
+        }
+      }
+    } catch {}
+  }, [isOpen]);
+
+  const addPhoneToHistory = (num: string) => {
+    const cleaned = (num || '').trim();
+    if (!/^\d{11}$/.test(cleaned)) return;
+    const next = [cleaned, ...recentPhones.filter((p) => p !== cleaned)].slice(0, 6);
+    setRecentPhones(next);
+    try { localStorage.setItem('data_phone_history', JSON.stringify(next)); } catch {}
+  };
+
+  const clearPhoneHistory = () => {
+    setRecentPhones([]);
+    try { localStorage.removeItem('data_phone_history'); } catch {}
+  };
 
   const validatePhone = async () => {
     try {
@@ -108,6 +136,8 @@ const DataBundleModal: React.FC<DataBundleModalProps> = ({ isOpen, onClose }) =>
       if ((result as any)?.wallet !== undefined) {
         updateWalletBalance((result as any).wallet);
       }
+      // Save successful phone number for quick selection
+      addPhoneToHistory(phoneNumber);
       
       // Reset form
       setSelectedNetwork('');
@@ -281,6 +311,28 @@ const DataBundleModal: React.FC<DataBundleModalProps> = ({ isOpen, onClose }) =>
                 {phoneValidation.message}
               </div>
             )}
+          {recentPhones.length > 0 && (
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-gray-500">Recent numbers</span>
+                <button type="button" onClick={clearPhoneHistory} className="text-xs text-red-500 hover:underline">Clear</button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {recentPhones.map((num) => (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => setPhoneNumber(num)}
+                    className={`px-2 py-1 rounded border text-sm ${
+                      isDark ? 'bg-gray-700 border-gray-600 hover:border-blue-400' : 'bg-gray-50 border-gray-200 hover:border-blue-400'
+                    }`}
+                  >
+                    {num}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           </div>
 
           {/* Purchase Button */}

@@ -25,6 +25,7 @@ const CableTVModal: React.FC<CableTVModalProps> = ({ isOpen, onClose }) => {
   const [customerName, setCustomerName] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [recentCards, setRecentCards] = useState<string[]>([]);
 
   const providers = [
     { id: 'dstv', name: 'DStv', color: 'bg-blue-600', logo: '📺' },
@@ -33,7 +34,7 @@ const CableTVModal: React.FC<CableTVModalProps> = ({ isOpen, onClose }) => {
   ];
 
   const [tvPlans, setTvPlans] = useState<Record<string, TVPlan[]>>({ dstv: [], gotv: [], startimes: [] });
-  const walletBalance = typeof user?.balance === 'number' ? user.wallet : 0;
+  const walletBalance = typeof user?.wallet === 'number' ? user.wallet : 0;
 
   useEffect(() => {
     const load = async () => {
@@ -58,6 +59,31 @@ const CableTVModal: React.FC<CableTVModalProps> = ({ isOpen, onClose }) => {
     };
     if (isOpen) load();
   }, [isOpen]);
+
+  // load recent smart card numbers on open
+  useEffect(() => {
+    if (!isOpen) return;
+    try {
+      const stored = localStorage.getItem('cable_card_history');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) setRecentCards(parsed.filter((s) => typeof s === 'string'));
+      }
+    } catch {}
+  }, [isOpen]);
+
+  const addCardToHistory = (num: string) => {
+    const cleaned = (num || '').trim();
+    if (!cleaned) return;
+    const next = [cleaned, ...recentCards.filter((p) => p !== cleaned)].slice(0, 6);
+    setRecentCards(next);
+    try { localStorage.setItem('cable_card_history', JSON.stringify(next)); } catch {}
+  };
+
+  const clearCardHistory = () => {
+    setRecentCards([]);
+    try { localStorage.removeItem('cable_card_history'); } catch {}
+  };
 
   const handleVerifyCard = async () => {
     if (!smartCardNumber || !selectedProvider) {
@@ -91,6 +117,7 @@ const CableTVModal: React.FC<CableTVModalProps> = ({ isOpen, onClose }) => {
     try {
       await vtuApiService.purchaseTv(selectedProvider, smartCardNumber, selectedPlan);
       alert(`${plan.name} subscription successful for ${smartCardNumber}!`);
+      addCardToHistory(smartCardNumber);
       onClose();
     } catch (e) {
       alert('TV purchase failed');
@@ -197,6 +224,28 @@ const CableTVModal: React.FC<CableTVModalProps> = ({ isOpen, onClose }) => {
                 )}
               </button>
             </div>
+            {recentCards.length > 0 && (
+              <div className="mt-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-gray-500">Recent smart cards</span>
+                  <button type="button" onClick={clearCardHistory} className="text-xs text-red-500 hover:underline">Clear</button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {recentCards.map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => setSmartCardNumber(num)}
+                      className={`px-2 py-1 rounded border text-sm ${
+                        isDark ? 'bg-gray-700 border-gray-600 hover:border-purple-400' : 'bg-gray-50 border-gray-200 hover:border-purple-400'
+                      }`}
+                    >
+                      {num}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {customerName && (
               <div className={`mt-2 p-3 rounded-lg ${
                 isDark ? 'bg-green-900 bg-opacity-20' : 'bg-green-50'

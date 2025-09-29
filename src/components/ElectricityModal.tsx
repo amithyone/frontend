@@ -30,6 +30,7 @@ const ElectricityModal: React.FC<ElectricityModalProps> = ({ isOpen, onClose }) 
   const [verifiedName, setVerifiedName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [recentCustomers, setRecentCustomers] = useState<string[]>([]);
 
   const wallet = typeof user?.balance === 'number' ? user.balance : 0;
 
@@ -49,6 +50,31 @@ const ElectricityModal: React.FC<ElectricityModalProps> = ({ isOpen, onClose }) 
     };
     load();
   }, [isOpen]);
+
+  // load recent meter/account numbers on open
+  useEffect(() => {
+    if (!isOpen) return;
+    try {
+      const stored = localStorage.getItem('electricity_customer_history');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) setRecentCustomers(parsed.filter((s) => typeof s === 'string'));
+      }
+    } catch {}
+  }, [isOpen]);
+
+  const addCustomerToHistory = (id: string) => {
+    const cleaned = (id || '').trim();
+    if (!cleaned) return;
+    const next = [cleaned, ...recentCustomers.filter((p) => p !== cleaned)].slice(0, 6);
+    setRecentCustomers(next);
+    try { localStorage.setItem('electricity_customer_history', JSON.stringify(next)); } catch {}
+  };
+
+  const clearCustomerHistory = () => {
+    setRecentCustomers([]);
+    try { localStorage.removeItem('electricity_customer_history'); } catch {}
+  };
 
   useEffect(() => {
     if (!serviceId && providers.length) setServiceId(providers[0].id);
@@ -103,6 +129,7 @@ const ElectricityModal: React.FC<ElectricityModalProps> = ({ isOpen, onClose }) 
       const data = await resp.json();
       if (!data.success) throw new Error(data.message || 'Electricity purchase failed');
       setMsg({ type: 'success', text: 'Electricity purchased successfully' });
+      addCustomerToHistory(customerId);
       setCustomerId('');
       setAmount('');
       setVerifiedName(null);
@@ -152,6 +179,28 @@ const ElectricityModal: React.FC<ElectricityModalProps> = ({ isOpen, onClose }) 
           <div>
             <label className="block text-sm font-medium mb-2">Meter / Account Number</label>
             <input value={customerId} onChange={(e) => setCustomerId(e.target.value)} className={`w-full p-3 border rounded-lg ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`} placeholder="Enter meter/account number" />
+            {recentCustomers.length > 0 && (
+              <div className="mt-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-gray-500">Recent meter/account</span>
+                  <button type="button" onClick={clearCustomerHistory} className="text-xs text-red-500 hover:underline">Clear</button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {recentCustomers.map((id) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setCustomerId(id)}
+                      className={`px-2 py-1 rounded border text-sm ${
+                        isDark ? 'bg-gray-700 border-gray-600 hover:border-yellow-400' : 'bg-gray-50 border-gray-200 hover:border-yellow-400'
+                      }`}
+                    >
+                      {id}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {verifiedName && <div className="text-xs mt-1 text-green-600">Name: {verifiedName}</div>}
             <button onClick={verify} disabled={verifying || !serviceId || !customerId} className="mt-2 text-sm flex items-center gap-1 disabled:opacity-50">
               {verifying ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Verify

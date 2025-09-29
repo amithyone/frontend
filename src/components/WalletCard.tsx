@@ -3,7 +3,11 @@ import { Wallet, Plus } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 
-const WalletCard: React.FC = () => {
+interface WalletCardProps {
+  onFund?: () => void;
+}
+
+const WalletCard: React.FC<WalletCardProps> = ({ onFund }) => {
   const { isDark } = useTheme();
   const { user } = useAuth();
 
@@ -35,7 +39,7 @@ const WalletCard: React.FC = () => {
         </div>
       </div>
       
-      <button className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105">
+      <button onClick={onFund} className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105">
         <Plus className="h-5 w-5" />
         <span>Fund Wallet</span>
       </button>

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
-import { useAuth } from '../contexts/AuthContext';
 import WalletCard from './WalletCard';
 import ServiceGrid from './ServiceGrid';
 import QuickActions from './QuickActions';
@@ -9,19 +8,20 @@ import ServerCard from './ServerCard';
 import Navigation from './Navigation';
 import BottomNavigation from './BottomNavigation';
 import Inbox from './Inbox';
+import TopUpModal from './TopUpModal';
 
 const Dashboard: React.FC = () => {
   const { isDark } = useTheme();
-  const { user } = useAuth();
   const [currentPage, setCurrentPage] = useState<'home' | 'services'>('home');
   const [bottomCurrentPage, setBottomCurrentPage] = useState<'dashboard' | 'inbox' | 'wallet' | 'transactions' | 'settings'>('dashboard');
+  const [showTopUp, setShowTopUp] = useState(false);
 
   const renderContent = () => {
     switch (bottomCurrentPage) {
       case 'dashboard':
         return (
           <>
-            <WalletCard />
+            <WalletCard onFund={() => setShowTopUp(true)} />
             <ServiceGrid />
             <QuickActions />
             <ServerCard />
@@ -33,7 +33,7 @@ const Dashboard: React.FC = () => {
       case 'wallet':
         return (
           <>
-            <WalletCard />
+            <WalletCard onFund={() => setShowTopUp(true)} />
           </>
         );
       case 'transactions':
@@ -64,6 +64,14 @@ const Dashboard: React.FC = () => {
       <Navigation currentPage={currentPage} setCurrentPage={setCurrentPage} />
 
       {renderContent()}
+
+      <TopUpModal
+        isOpen={showTopUp}
+        onClose={() => setShowTopUp(false)}
+        onCredited={() => {
+          // Optionally refresh other widgets on credit
+        }}
+      />
 
       {/* Bottom Navigation */}
       <BottomNavigation currentPage={bottomCurrentPage} setCurrentPage={setBottomCurrentPage} />

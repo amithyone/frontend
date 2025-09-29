@@ -6,9 +6,6 @@ export const API_VTU_URL = (import.meta as any)?.env?.VITE_API_VTU_URL || 'http:
 export const API_SMS_URL = (import.meta as any)?.env?.VITE_API_SMS_URL || 'http://localhost:8000';
 export const API_PROXY_URL = (import.meta as any)?.env?.VITE_API_PROXY_URL || 'http://localhost:8000/proxy';
 export const API_WALLET_URL = (import.meta as any)?.env?.VITE_API_WALLET_URL || 'http://localhost:8000/wallet';
-// PayVibe optional absolute overrides
-export const PAYVIBE_INITIATE_URL = (import.meta as any)?.env?.VITE_PAYVIBE_INITIATE_URL || '';
-export const PAYVIBE_VERIFY_URL = (import.meta as any)?.env?.VITE_PAYVIBE_VERIFY_URL || '';
 
 export type ApiStatus = 'success' | 'error';
 
@@ -54,7 +51,7 @@ export interface VerifyPaymentData { status: 'pending' | 'completed' | 'failed';
 
 // SMS Services
 export interface SmsServiceItem { id: number; name: string; country: string; price: number; currency: string }
-export interface OrderSmsNumberBody { user_id: number; service: string; country: string }
+export interface OrderSmsNumberBody { user_id: number; service: string; country: string; provider?: string; mode?: 'auto' | 'manual' }
 export interface OrderSmsNumberData { order_id: string | number; phone: string; cost: number; api_service_id: number | string }
 export interface GetSmsCodeBody { activation_id: string; user_id: number }
 export interface GetSmsCodeData { code?: string; status: 'pending' | 'received' | 'expired' }
@@ -64,6 +61,22 @@ export type VtuType = 'airtime' | 'data';
 export interface VtuServiceItem { id: number; name: string; type: VtuType; provider: string; price: number }
 export interface PurchaseVtuBody { service_id: number; phone: string; amount?: number; bundle_code?: string }
 export interface PurchaseVtuData { order_id: string | number; status: string }
+
+// Airtime Purchase
+export interface AirtimePurchaseBody {
+  network: string;
+  phone: string;
+  amount: number;
+}
+
+export interface AirtimePurchaseData {
+  reference: string;
+  network: string;
+  phone: string;
+  amount: number;
+  status: string;
+  message: string;
+}
 
 // Proxy
 export interface ProxyServiceItem { id: number; name: string; price: number; provider: string }
@@ -97,23 +110,6 @@ class ApiService {
       console.error(`HTTP ${resp.status} for ${endpoint}`);
     }
     // Throw on network-level errors only (fetch would have thrown). Here we parse JSON regardless
-    const json = (await resp.json()) as ApiResponse<T>;
-    return json;
-  }
-
-  private async requestAbsolute<T>(absoluteUrl: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      ...(options.headers as Record<string, string> | undefined),
-    };
-    const token = localStorage.getItem('auth_token');
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    const init: RequestInit = { ...options, headers };
-    const resp = await fetch(absoluteUrl, init);
-    if (!resp.ok) {
-      console.error(`HTTP ${resp.status} for ${absoluteUrl}`);
-    }
     const json = (await resp.json()) as ApiResponse<T>;
     return json;
   }
@@ -180,8 +176,7 @@ class ApiService {
   }
 
   public async initiateTopUp(body: InitiateTopUpBody, init?: RequestInit) {
-    const absolute = PAYVIBE_INITIATE_URL || `${API_BASE_URL}/payvibe-initiate.php`;
-    return this.requestAbsolute<InitiateTopUpData>(absolute, {
+    return this.request<InitiateTopUpData>('/wallet/topup/initiate', {
       method: 'POST',
       body: JSON.stringify(body),
       ...init,
@@ -189,8 +184,7 @@ class ApiService {
   }
 
   public async checkPaymentStatus(body: VerifyPaymentBody, init?: RequestInit) {
-    const absolute = PAYVIBE_VERIFY_URL || `${API_BASE_URL}/payvibe-verify.php`;
-    return this.requestAbsolute<VerifyPaymentData>(absolute, {
+    return this.request<VerifyPaymentData>('/wallet/topup/verify', {
       method: 'POST',
       body: JSON.stringify(body),
       ...init,
@@ -201,13 +195,10 @@ class ApiService {
     return this.request<any>('/wallet/history', { method: 'GET', ...init });
   }
 
-  // SMS Services
-  public async getSmsServices(init?: RequestInit) {
-    return this.request<SmsServiceItem[]>('/sms-service-api.php?action=getServices', { method: 'GET', ...init });
-  }
+  // SMS Services - Note: Use smsApiService.getServices() instead
 
   public async orderSmsNumber(body: OrderSmsNumberBody, init?: RequestInit) {
-    return this.request<OrderSmsNumberData>('/sms-service-api.php?action=orderNumber', {
+    return this.request<OrderSmsNumberData>('/sms/order', {
       method: 'POST',
       body: JSON.stringify(body),
       ...init,
@@ -215,7 +206,7 @@ class ApiService {
   }
 
   public async getSmsCode(body: GetSmsCodeBody, init?: RequestInit) {
-    return this.request<GetSmsCodeData>('/sms-service-api.php?action=getSms', {
+    return this.request<GetSmsCodeData>('/sms/code', {
       method: 'POST',
       body: JSON.stringify(body),
       ...init,
@@ -229,6 +220,14 @@ class ApiService {
 
   public async purchaseVtu(body: PurchaseVtuBody, init?: RequestInit) {
     return this.request<PurchaseVtuData>('/vtu/purchase', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      ...init,
+    });
+  }
+
+  public async purchaseAirtime(body: AirtimePurchaseBody, init?: RequestInit) {
+    return this.request<AirtimePurchaseData>('/vtu/airtime/purchase', {
       method: 'POST',
       body: JSON.stringify(body),
       ...init,
@@ -256,9 +255,9 @@ class ApiService {
 
 // Create service instances with appropriate base URLs
 export const apiService = new ApiService(API_BASE_URL);
-export const vtuApiService = new ApiService(API_BASE_URL);
-export const smsApiService = new ApiService(API_BASE_URL);
-export const proxyApiService = new ApiService(API_BASE_URL);
-export const walletApiService = new ApiService(API_BASE_URL);
+export const vtuApiService = new ApiService(API_VTU_URL);
+export const smsApiService = new ApiService(API_SMS_URL);
+export const proxyApiService = new ApiService(API_PROXY_URL);
+export const walletApiService = new ApiService(API_WALLET_URL);
 
 export default ApiService;

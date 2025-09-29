@@ -15,7 +15,6 @@ const AirtimeModal: React.FC<AirtimeModalProps> = ({ isOpen, onClose }) => {
   const {
     airtimeNetworks,
     loadingNetworks,
-    errorNetworks,
     purchaseAirtime,
     validatePhoneNumber
   } = useVtuContext();
@@ -27,6 +26,7 @@ const AirtimeModal: React.FC<AirtimeModalProps> = ({ isOpen, onClose }) => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [phoneValidation, setPhoneValidation] = useState<{ isValid: boolean; message: string } | null>(null);
+  const [recentPhones, setRecentPhones] = useState<string[]>([]);
 
   // Validate phone number when network or phone changes
   useEffect(() => {
@@ -36,6 +36,43 @@ const AirtimeModal: React.FC<AirtimeModalProps> = ({ isOpen, onClose }) => {
       setPhoneValidation(null);
     }
   }, [selectedNetwork, phoneNumber]);
+
+  // Load recent phone numbers from localStorage when modal opens
+  useEffect(() => {
+    if (!isOpen) return;
+    try {
+      const stored = localStorage.getItem('airtime_phone_history');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setRecentPhones(parsed.filter((p) => typeof p === 'string'));
+        }
+      }
+    } catch (_) {
+      // ignore
+    }
+  }, [isOpen]);
+
+  const addPhoneToHistory = (num: string) => {
+    const cleaned = (num || '').trim();
+    if (!/^\d{11}$/.test(cleaned)) return;
+    const next = [cleaned, ...recentPhones.filter((p) => p !== cleaned)].slice(0, 6);
+    setRecentPhones(next);
+    try {
+      localStorage.setItem('airtime_phone_history', JSON.stringify(next));
+    } catch (_) {
+      // ignore quota errors
+    }
+  };
+
+  const clearPhoneHistory = () => {
+    setRecentPhones([]);
+    try {
+      localStorage.removeItem('airtime_phone_history');
+    } catch (_) {
+      // ignore
+    }
+  };
 
   const validatePhone = async () => {
     try {
@@ -84,6 +121,8 @@ const AirtimeModal: React.FC<AirtimeModalProps> = ({ isOpen, onClose }) => {
       if ((result as any)?.wallet !== undefined) {
         updateWalletBalance((result as any).wallet);
       }
+      // Save successful phone number for quick selection next time
+      addPhoneToHistory(phoneNumber);
       
       // Reset form
       setSelectedNetwork('');
@@ -210,6 +249,36 @@ const AirtimeModal: React.FC<AirtimeModalProps> = ({ isOpen, onClose }) => {
                 {phoneValidation.message}
               </div>
             )}
+            {recentPhones.length > 0 && (
+              <div className="mt-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-gray-500">Recent numbers</span>
+                  <button
+                    type="button"
+                    onClick={clearPhoneHistory}
+                    className="text-xs text-red-500 hover:underline"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {recentPhones.map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => setPhoneNumber(num)}
+                      className={`px-2 py-1 rounded border text-sm ${
+                        isDark
+                          ? 'bg-gray-700 border-gray-600 hover:border-green-400'
+                          : 'bg-gray-50 border-gray-200 hover:border-green-400'
+                      }`}
+                    >
+                      {num}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Amount */}
@@ -236,7 +305,13 @@ const AirtimeModal: React.FC<AirtimeModalProps> = ({ isOpen, onClose }) => {
           {/* Purchase Button */}
           <button
             onClick={handlePurchase}
-            disabled={isLoading || !selectedNetwork || !phoneNumber || !amount || (phoneValidation && !phoneValidation.isValid)}
+            disabled={
+              isLoading ||
+              !selectedNetwork ||
+              !phoneNumber ||
+              !amount ||
+              phoneValidation?.isValid === false
+            }
             className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           >
             {isLoading ? (
