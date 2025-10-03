@@ -4,7 +4,6 @@ import {
   History, 
   Search, 
   Filter, 
-  Calendar, 
   Download, 
   ArrowUpRight, 
   ArrowDownLeft,
@@ -16,7 +15,8 @@ import {
   TrendingUp,
   TrendingDown,
   DollarSign,
-  CreditCard
+  CreditCard,
+  Zap
 } from 'lucide-react';
 
 interface Transaction {
@@ -31,6 +31,11 @@ interface Transaction {
   reference?: string;
   service?: string;
   recipient?: string;
+  // Electricity-specific fields
+  token?: string;
+  units?: string;
+  customerName?: string;
+  meterType?: string;
 }
 
 const Transactions: React.FC = () => {
@@ -138,7 +143,12 @@ const Transactions: React.FC = () => {
       date: '2024-01-13',
       time: '10:45',
       service: 'EKEDC',
-      recipient: '12345678901'
+      recipient: '12345678901',
+      reference: 'ELEC202401131045',
+      token: '1234-5678-9012-3456',
+      units: '45.5 kWh',
+      customerName: 'John Doe',
+      meterType: 'prepaid'
     }
   ];
 
@@ -196,19 +206,6 @@ const Transactions: React.FC = () => {
     }
   };
 
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'wallet_topup':
-        return <CreditCard className="h-4 w-4" />;
-      case 'virtual_number':
-        return <CheckCircle className="h-4 w-4" />;
-      case 'airtime':
-      case 'data':
-        return <ArrowUpRight className="h-4 w-4" />;
-      default:
-        return <DollarSign className="h-4 w-4" />;
-    }
-  };
 
   return (
     <div className={`p-4 space-y-6 transition-colors duration-200 ${
@@ -487,7 +484,12 @@ const Transactions: React.FC = () => {
             isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
           }`}>
             <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-xl font-bold">Transaction Details</h2>
+              <h2 className="text-xl font-bold flex items-center">
+                {selectedTransaction.category === 'electricity' && (
+                  <Zap className="h-6 w-6 mr-2 text-yellow-500" />
+                )}
+                Transaction Details
+              </h2>
               <button
                 onClick={() => setSelectedTransaction(null)}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -550,6 +552,52 @@ const Transactions: React.FC = () => {
                     <span className="text-gray-500">Reference:</span>
                     <span className="font-mono">{selectedTransaction.reference}</span>
                   </div>
+                )}
+                
+                {/* Electricity-specific details */}
+                {selectedTransaction.category === 'electricity' && (
+                  <>
+                    {selectedTransaction.customerName && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Customer Name:</span>
+                        <span className="font-medium">{selectedTransaction.customerName}</span>
+                      </div>
+                    )}
+                    {selectedTransaction.meterType && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Meter Type:</span>
+                        <span className="font-medium capitalize">{selectedTransaction.meterType}</span>
+                      </div>
+                    )}
+                    {selectedTransaction.token && (
+                      <div className="border-t pt-3 mt-3">
+                        <div className="bg-yellow-50 dark:bg-yellow-900 p-3 rounded-lg">
+                          <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">Token Details</h4>
+                          <div className="space-y-1">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600 dark:text-gray-300">Token:</span>
+                              <span className="font-mono text-lg font-bold text-yellow-700 dark:text-yellow-300">{selectedTransaction.token}</span>
+                            </div>
+                            {selectedTransaction.units && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-600 dark:text-gray-300">Units:</span>
+                                <span className="font-medium">{selectedTransaction.units}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText(selectedTransaction.token || '');
+                            // You could add a toast notification here
+                          }}
+                          className="w-full mt-2 bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                        >
+                          Copy Token
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>

@@ -31,6 +31,8 @@ const ElectricityModal: React.FC<ElectricityModalProps> = ({ isOpen, onClose }) 
   const [isLoading, setIsLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [recentCustomers, setRecentCustomers] = useState<string[]>([]);
+  const [purchaseResult, setPurchaseResult] = useState<any>(null);
+  const [showReceipt, setShowReceipt] = useState(false);
 
   const wallet = typeof user?.balance === 'number' ? user.balance : 0;
 
@@ -128,8 +130,28 @@ const ElectricityModal: React.FC<ElectricityModalProps> = ({ isOpen, onClose }) 
       if (!ct.includes('application/json')) throw new Error('Unexpected response type');
       const data = await resp.json();
       if (!data.success) throw new Error(data.message || 'Electricity purchase failed');
-      setMsg({ type: 'success', text: 'Electricity purchased successfully' });
+      
+      // Save the meter/account number after successful purchase
       addCustomerToHistory(customerId);
+      
+      // Store purchase result for receipt display
+      setPurchaseResult({
+        reference: data.data?.reference || `ELEC${Date.now()}`,
+        customerId: customerId,
+        customerName: verifiedName,
+        amount: amt,
+        provider: providers.find(p => p.id === serviceId)?.name || 'Unknown',
+        meterType: meterType,
+        token: data.data?.token || data.data?.receipt?.token || 'N/A',
+        units: data.data?.units || data.data?.receipt?.units || 'N/A',
+        date: new Date().toLocaleString(),
+        ...data.data
+      });
+      
+      setMsg({ type: 'success', text: 'Electricity purchased successfully! Click to view receipt.' });
+      setShowReceipt(true);
+      
+      // Clear form
       setCustomerId('');
       setAmount('');
       setVerifiedName(null);
@@ -226,6 +248,101 @@ const ElectricityModal: React.FC<ElectricityModalProps> = ({ isOpen, onClose }) 
           </button>
         </div>
       </div>
+      
+      {/* Electricity Receipt Modal */}
+      {showReceipt && purchaseResult && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-60 flex items-center justify-center p-4">
+          <div className={`w-full max-w-md rounded-2xl shadow-2xl ${isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}`}>
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-xl font-bold flex items-center">
+                <Zap className="h-6 w-6 mr-2 text-yellow-500" /> Electricity Receipt
+              </h2>
+              <button onClick={() => setShowReceipt(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div className="text-center mb-6">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 dark:bg-green-900 mb-4">
+                  <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Payment Successful!</h3>
+                <p className="text-2xl font-bold text-green-600">₦{purchaseResult.amount.toLocaleString()}</p>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Provider:</span>
+                  <span className="font-medium">{purchaseResult.provider}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Meter Number:</span>
+                  <span className="font-mono">{purchaseResult.customerId}</span>
+                </div>
+                {purchaseResult.customerName && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Customer Name:</span>
+                    <span className="font-medium">{purchaseResult.customerName}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Meter Type:</span>
+                  <span className="font-medium capitalize">{purchaseResult.meterType}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Reference:</span>
+                  <span className="font-mono text-sm">{purchaseResult.reference}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Date:</span>
+                  <span>{purchaseResult.date}</span>
+                </div>
+                
+                {purchaseResult.token && purchaseResult.token !== 'N/A' && (
+                  <div className="border-t pt-3 mt-3">
+                    <div className="bg-yellow-50 dark:bg-yellow-900 p-3 rounded-lg">
+                      <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">Token Details</h4>
+                      <div className="space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-300">Token:</span>
+                          <span className="font-mono text-lg font-bold text-yellow-700 dark:text-yellow-300">{purchaseResult.token}</span>
+                        </div>
+                        {purchaseResult.units && purchaseResult.units !== 'N/A' && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600 dark:text-gray-300">Units:</span>
+                            <span className="font-medium">{purchaseResult.units} kWh</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex space-x-3 pt-4">
+                <button 
+                  onClick={() => {
+                    // Copy token to clipboard if available
+                    if (purchaseResult.token && purchaseResult.token !== 'N/A') {
+                      navigator.clipboard.writeText(purchaseResult.token);
+                    }
+                  }}
+                  className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                >
+                  Copy Token
+                </button>
+                <button 
+                  onClick={() => setShowReceipt(false)} 
+                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

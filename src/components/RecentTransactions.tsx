@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
-import { Shield, Phone, CheckCircle, Clock, XCircle, AlertCircle } from 'lucide-react';
+import { Shield, Phone, CheckCircle, Clock, XCircle, AlertCircle, Eye } from 'lucide-react';
 import { apiService } from '../services/api';
 
 interface Transaction {
@@ -20,6 +20,7 @@ const RecentTransactions: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -130,9 +131,13 @@ const RecentTransactions: React.FC = () => {
         
         {!loading && !error && Array.isArray(transactions) && transactions.length > 0 ? (
           transactions.slice(0, 5).map((transaction) => (
-            <div key={transaction.id} className={`flex items-center justify-between p-3 rounded-xl ${
-              isDark ? 'bg-gray-700' : 'bg-gray-50'
-            }`}>
+            <div
+              key={transaction.id}
+              onClick={() => setSelectedTransaction(transaction)}
+              className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-colors ${
+                isDark ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-50 hover:bg-gray-100'
+              }`}
+            >
               <div className="flex items-center space-x-3">
                 <div className={`p-2 rounded-lg ${
                   isDark ? 'bg-gray-600' : 'bg-gray-200'
@@ -163,6 +168,9 @@ const RecentTransactions: React.FC = () => {
                     </span>
                   </div>
                 </div>
+                <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-600' : 'bg-gray-200'}`}>
+                  <Eye className={`h-4 w-4 ${isDark ? 'text-gray-200' : 'text-gray-700'}`} />
+                </div>
               </div>
             </div>
           ))
@@ -183,6 +191,82 @@ const RecentTransactions: React.FC = () => {
         }`}>
           View All Transactions ({transactions.length})
         </button>
+      )}
+
+      {selectedTransaction && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className={`w-full max-w-md rounded-2xl shadow-2xl ${
+            isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
+          }`}>
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-xl font-bold flex items-center">Transaction Details</h2>
+              <button
+                onClick={() => setSelectedTransaction(null)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="text-center">
+                <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 ${
+                  selectedTransaction.type === 1 ? 'bg-green-100 dark:bg-green-900' : 'bg-blue-100 dark:bg-blue-900'
+                }`}>
+                  {selectedTransaction.type === 1 ? (
+                    <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
+                  ) : (
+                    <Phone className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                  )}
+                </div>
+                <h3 className="text-lg font-semibold mb-1">{selectedTransaction.detail || 'Transaction'}</h3>
+                <p className={`text-2xl font-bold ${
+                  selectedTransaction.type === 1 ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {formatAmount(selectedTransaction.amount, selectedTransaction.type)}
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Transaction ID:</span>
+                  <span className="font-mono">{selectedTransaction.id}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Date:</span>
+                  <span>{new Date(selectedTransaction.created_at).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Status:</span>
+                  <div className="flex items-center space-x-1">
+                    {getStatusIcon(selectedTransaction.status)}
+                    <span className={getStatusBadge(selectedTransaction.status)}>
+                      {selectedTransaction.status}
+                    </span>
+                  </div>
+                </div>
+                {typeof selectedTransaction.ref_id !== 'undefined' && selectedTransaction.ref_id !== null && selectedTransaction.ref_id !== '' && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Reference:</span>
+                    <span className="font-mono">{selectedTransaction.ref_id}</span>
+                  </div>
+                )}
+                {typeof selectedTransaction.charge === 'number' && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Charge:</span>
+                    <span>₦{Math.abs(selectedTransaction.charge || 0).toLocaleString()}</span>
+                  </div>
+                )}
+                {typeof selectedTransaction.final_amount === 'number' && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Final Amount:</span>
+                    <span>₦{Math.abs(selectedTransaction.final_amount || 0).toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
