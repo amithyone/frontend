@@ -148,7 +148,10 @@ const ElectricityModal: React.FC<ElectricityModalProps> = ({ isOpen, onClose }) 
         ...data.data
       });
       
-      setMsg({ type: 'success', text: 'Electricity purchased successfully! Click to view receipt.' });
+      setMsg({ 
+        type: 'success', 
+        text: 'Electricity purchased successfully! Token sent to your SMS and inbox. Click to view receipt.' 
+      });
       setShowReceipt(true);
       
       // Clear form
@@ -302,7 +305,9 @@ const ElectricityModal: React.FC<ElectricityModalProps> = ({ isOpen, onClose }) 
                 {purchaseResult.token && purchaseResult.token !== 'N/A' && (
                   <div className="border-t pt-3 mt-3">
                     <div className="bg-yellow-50 dark:bg-yellow-900 p-3 rounded-lg">
-                      <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">Token Details</h4>
+                      <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2 flex items-center">
+                        🔆 Fadded VIP Token Details
+                      </h4>
                       <div className="space-y-1">
                         <div className="flex justify-between">
                           <span className="text-gray-600 dark:text-gray-300">Token:</span>
@@ -314,6 +319,9 @@ const ElectricityModal: React.FC<ElectricityModalProps> = ({ isOpen, onClose }) 
                             <span className="font-medium">{purchaseResult.units} kWh</span>
                           </div>
                         )}
+                      </div>
+                      <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900 rounded text-sm text-blue-800 dark:text-blue-200">
+                        💡 Token also sent to your SMS and saved in inbox for future reference
                       </div>
                     </div>
                   </div>

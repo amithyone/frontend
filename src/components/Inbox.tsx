@@ -1,173 +1,341 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
-import { Search, Filter, CheckCircle2, AlertCircle, Bell, Wallet, Zap, Wifi, Phone } from 'lucide-react';
-import { smsApiService, SmsOrderHistory } from '../services/smsApi';
-
-export interface InboxItem {
-  id: string | number;
-  title: string;
-  body: string;
-  category: 'orders' | 'wallet' | 'vtu' | 'system';
-  status?: 'info' | 'success' | 'warning' | 'error';
-  created_at: string; // ISO or display
-}
-
-// Map backend SMS order to inbox item
-const mapOrderToInboxItem = (o: SmsOrderHistory): InboxItem => {
-  const isWaiting = !o.sms_code && (o.status?.toLowerCase?.() === 'pending' || o.status?.toLowerCase?.().includes('wait'));
-  const status: InboxItem['status'] = o.status?.toLowerCase?.() === 'completed' || o.status?.toLowerCase?.() === 'success'
-    ? 'success'
-    : isWaiting ? 'warning' : 'info';
-  const title = isWaiting ? 'Waiting for SMS code' : (o.sms_code ? 'SMS code received' : `SMS order ${o.status || ''}`.trim());
-  const cost = isNaN(Number(o.cost)) ? '' : ` • ₦${Number(o.cost).toLocaleString()}`;
-  const body = `${o.service?.toUpperCase?.() || 'SERVICE'} • ${o.phone_number || '—'}${cost}`;
-  return {
-    id: o.order_id,
-    title,
-    body,
-    category: 'orders',
-    status,
-    created_at: o.created_at || new Date().toISOString(),
-  };
-};
-
-const statusIcon = (status?: InboxItem['status']) => {
-  switch (status) {
-    case 'success':
-      return <CheckCircle2 className="h-4 w-4 text-green-600" />;
-    case 'warning':
-      return <AlertCircle className="h-4 w-4 text-yellow-600" />;
-    case 'error':
-      return <AlertCircle className="h-4 w-4 text-red-600" />;
-    default:
-      return <Bell className="h-4 w-4 text-blue-600" />;
-  }
-};
-
-const categoryIcon = (cat: InboxItem['category']) => {
-  switch (cat) {
-    case 'wallet':
-      return <Wallet className="h-5 w-5" />;
-    case 'vtu':
-      return <Wifi className="h-5 w-5" />;
-    case 'orders':
-      return <Zap className="h-5 w-5" />;
-    default:
-      return <Phone className="h-5 w-5" />;
-  }
-};
+import { apiService } from '../services/api';
+import { 
+  Mail, 
+  MailOpen, 
+  X, 
+  CheckCircle, 
+  Clock, 
+  Zap, 
+  Copy,
+  Trash2,
+  RefreshCw,
+  Eye,
+  AlertCircle
+} from 'lucide-react';
 
 const Inbox: React.FC = () => {
   const { isDark } = useTheme();
-  const [query, setQuery] = useState('');
-  const [tab, setTab] = useState<'all' | 'orders' | 'wallet' | 'vtu' | 'system'>('all');
-  const [orders, setOrders] = useState<SmsOrderHistory[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedMessage, setSelectedMessage] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchInbox = async () => {
+  useEffect(() => {
+    loadMessages();
+    loadUnreadCount();
+  }, [currentPage]);
+
+  const loadMessages = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await smsApiService.getInbox(undefined, 50);
-      setOrders(data);
-    } catch (e: any) {
-      setError(e?.message || 'Failed to load inbox');
+      const response = await apiService.getInboxMessages({ 
+        page: currentPage, 
+        limit: 20 
+      });
+      
+      if (response.status === 'success' && response.data) {
+        setMessages(response.data.messages || []);
+      } else {
+        setError('Failed to load messages');
+      }
+    } catch (error) {
+      console.error('Failed to load messages:', error);
+      setError('Failed to load messages');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchInbox();
-    const t = setInterval(fetchInbox, 10000);
-    return () => clearInterval(t);
-  }, []);
-
-  const items = useMemo(() => {
-    let list: InboxItem[] = orders.map(mapOrderToInboxItem);
-    if (tab !== 'all') list = list.filter(i => i.category === tab);
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      list = list.filter(i => i.title.toLowerCase().includes(q) || i.body.toLowerCase().includes(q));
+  const loadUnreadCount = async () => {
+    try {
+      const response = await apiService.getInboxUnreadCount();
+      if (response.status === 'success' && response.data) {
+        setUnreadCount(response.data.unread_count || 0);
+      }
+    } catch (error) {
+      console.error('Failed to load unread count:', error);
     }
-    return list;
-  }, [orders, query, tab]);
+  };
 
-  return (
-    <div className={`rounded-2xl border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-      {/* Header */}
-      <div className={`p-4 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-        <div className="flex items-center justify-between gap-3">
-          <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>Inbox</h3>
-          <div className="flex items-center gap-2">
-            <div className={`flex items-center px-3 py-2 rounded-lg gap-2 ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>
-              <Search className={`h-4 w-4 ${isDark ? 'text-gray-300' : 'text-gray-500'}`} />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search…"
-                className={`bg-transparent outline-none text-sm ${isDark ? 'text-white placeholder-gray-400' : 'text-gray-900 placeholder-gray-500'}`}
-              />
-            </div>
-            <button className={`px-3 py-2 rounded-lg text-sm flex items-center gap-1 ${isDark ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-700'}`}>
-              <Filter className="h-4 w-4" /> Filter
-            </button>
+  const handleMarkAsRead = async (messageId: number) => {
+    try {
+      await apiService.markInboxMessageAsRead({ message_id: messageId });
+      loadMessages();
+      loadUnreadCount();
+    } catch (error) {
+      console.error('Failed to mark as read:', error);
+    }
+  };
+
+  const handleViewMessage = async (message: any) => {
+    setSelectedMessage(message);
+    if (!message.is_read) {
+      await handleMarkAsRead(message.id);
+    }
+  };
+
+  const handleCopyToken = (token: string) => {
+    navigator.clipboard.writeText(token);
+    // You could add a toast notification here
+  };
+
+  const renderMessageContent = (message: any) => {
+    if (message.type === 'electricity_token' && message.metadata) {
+      const { token, units, customer_name, amount } = message.metadata;
+      return (
+        <div className="electricity-token-details">
+          <h4 className="flex items-center text-lg font-semibold mb-4 text-green-600 dark:text-green-400">
+            <Zap className="h-5 w-5 mr-2" />
+            🔆 Fadded VIP Electricity Token
+          </h4>
+          <div className="token-info space-y-2">
+            {customer_name && (
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-300">Customer:</span>
+                <span className="font-medium">{customer_name}</span>
+              </div>
+            )}
+            {token && (
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-300">Token:</span>
+                <div className="flex items-center space-x-2">
+                  <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded font-mono text-sm font-bold text-pink-600 dark:text-pink-400">
+                    {token}
+                  </code>
+                  <button
+                    onClick={() => handleCopyToken(token)}
+                    className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                    title="Copy token"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+            {units && (
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-300">Units:</span>
+                <span className="font-medium">{units} kWh</span>
+              </div>
+            )}
+            {amount && (
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-300">Amount:</span>
+                <span className="font-medium">₦{amount.toLocaleString()}</span>
+              </div>
+            )}
+            {message.reference && (
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-300">Reference:</span>
+                <span className="font-mono text-sm">{message.reference}</span>
+              </div>
+            )}
           </div>
         </div>
-        {/* Tabs */}
-        <div className="mt-3 flex items-center gap-2 overflow-x-auto">
-          {(['all','orders','wallet','vtu','system'] as const).map(t => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${tab === t
-                ? (isDark ? 'bg-orange-600 text-white' : 'bg-orange-100 text-orange-700')
-                : (isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700')}`}
-            >
-              {t[0].toUpperCase() + t.slice(1)}
-            </button>
-          ))}
-        </div>
+      );
+    }
+    
+    return (
+      <div className="message-content">
+        <p className="whitespace-pre-wrap">{message.message}</p>
+      </div>
+    );
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return {
+      date: date.toLocaleDateString(),
+      time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+  };
+
+  return (
+    <div className={`p-4 space-y-6 transition-colors duration-200 ${
+      isDark ? 'bg-gray-900' : 'bg-gray-50'
+    }`}>
+      {/* Header */}
+      <div className="text-center">
+        <h1 className={`text-2xl font-bold mb-2 flex items-center justify-center ${
+          isDark ? 'text-white' : 'text-gray-900'
+        }`}>
+          <Mail className="h-8 w-8 mr-3 text-blue-500" />
+          Inbox
+        </h1>
+        <p className={`text-sm ${
+          isDark ? 'text-gray-400' : 'text-gray-600'
+        }`}>Your messages and notifications</p>
+        {unreadCount > 0 && (
+          <div className="mt-2">
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+              {unreadCount} unread message{unreadCount !== 1 ? 's' : ''}
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* List */}
-      <ul className="divide-y last:border-b-0">
-        {loading && (
-          <li className="p-4 text-sm opacity-70">Loading inbox…</li>
-        )}
-        {error && (
-          <li className="p-4 text-sm text-red-600">{error}</li>
-        )}
-        {items.map((i) => (
-          <li key={i.id} className={`p-4 flex items-start gap-3 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-            <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-700'}`}>
-              {categoryIcon(i.category)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  {statusIcon(i.status)}
-                  <span className={`font-medium truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{i.title}</span>
+      {/* Refresh Button */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => {
+            loadMessages();
+            loadUnreadCount();
+          }}
+          disabled={loading}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-lg border transition-colors duration-200 ${
+            isDark 
+              ? 'border-gray-600 bg-gray-700 text-white hover:bg-gray-600 disabled:opacity-50' 
+              : 'border-gray-200 bg-gray-50 text-gray-900 hover:bg-gray-100 disabled:opacity-50'
+          }`}
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          <span className="text-sm">Refresh</span>
+        </button>
+      </div>
+
+      {/* Messages List */}
+      <div className="space-y-3">
+        {loading ? (
+          <div className="text-center py-12">
+            <RefreshCw className="h-8 w-8 mx-auto mb-4 animate-spin text-blue-500" />
+            <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Loading messages...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-12">
+            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-500" />
+            <h3 className={`text-lg font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              Error loading messages
+            </h3>
+            <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{error}</p>
+            <button
+              onClick={() => {
+                setError(null);
+                loadMessages();
+              }}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="text-center py-12">
+            <MailOpen className={`h-12 w-12 mx-auto mb-4 ${isDark ? 'text-gray-600' : 'text-gray-400'}`} />
+            <h3 className={`text-lg font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              No messages found
+            </h3>
+            <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              Your inbox is empty. Messages will appear here when you make transactions.
+            </p>
+          </div>
+        ) : (
+          messages.map((message) => {
+            const { date, time } = formatDate(message.created_at);
+            return (
+              <div 
+                key={message.id} 
+                className={`message-item cursor-pointer transition-all duration-200 hover:shadow-md ${
+                  isDark 
+                    ? 'bg-gray-800 border-gray-700 hover:bg-gray-750' 
+                    : 'bg-white border-gray-100 hover:bg-gray-50'
+                } ${
+                  !message.is_read 
+                    ? 'border-l-4 border-l-blue-500 bg-blue-50 dark:bg-blue-900 dark:bg-opacity-20' 
+                    : 'border border-gray-200 dark:border-gray-700'
+                } rounded-xl p-4`}
+                onClick={() => handleViewMessage(message)}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <h4 className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                        {message.title}
+                      </h4>
+                      {!message.is_read && (
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      )}
+                    </div>
+                    <p className={`text-sm mb-2 ${
+                      isDark ? 'text-gray-300' : 'text-gray-600'
+                    }`}>
+                      {message.message.length > 100 
+                        ? `${message.message.substring(0, 100)}...` 
+                        : message.message
+                      }
+                    </p>
+                    <div className="flex items-center space-x-4 text-xs text-gray-500">
+                      <span>{date}</span>
+                      <span>{time}</span>
+                      {message.type === 'electricity_token' && (
+                        <span className="flex items-center space-x-1 text-yellow-600 dark:text-yellow-400">
+                          <Zap className="h-3 w-3" />
+                          <span>Token</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2 ml-4">
+                    {!message.is_read && (
+                      <div className="flex items-center space-x-1 text-blue-600 text-xs">
+                        <Mail className="h-3 w-3" />
+                        <span>New</span>
+                      </div>
+                    )}
+                    <Eye className="h-4 w-4 text-gray-400" />
+                  </div>
                 </div>
-                <span className={`text-xs whitespace-nowrap ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{i.created_at}</span>
               </div>
-              <p className={`mt-1 text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{i.body}</p>
-              <div className="mt-2 flex items-center gap-2">
-                <span className={`text-[10px] px-2 py-0.5 rounded-full ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>{i.category}</span>
-                {i.status && (
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                    i.status === 'success' ? 'bg-green-100 text-green-700' : i.status === 'warning' ? 'bg-yellow-100 text-yellow-700' : i.status === 'error' ? 'bg-red-100 text-red-700' : (isDark ? 'bg-blue-900 text-blue-300' : 'bg-blue-100 text-blue-700')
-                  }`}>{i.status}</span>
-                )}
-              </div>
-            </div>
-          </li>
-        ))}
-        {items.length === 0 && (
-          <li className="p-10 text-center text-sm opacity-70">No messages yet</li>
+            );
+          })
         )}
-      </ul>
+      </div>
+
+      {/* Message Detail Modal */}
+      {selectedMessage && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className={`w-full max-w-md rounded-2xl shadow-2xl ${
+            isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
+          }`}>
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-xl font-bold flex items-center">
+                {selectedMessage.type === 'electricity_token' && (
+                  <Zap className="h-6 w-6 mr-2 text-yellow-500" />
+                )}
+                {selectedMessage.title}
+              </h3>
+              <button 
+                onClick={() => setSelectedMessage(null)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                {formatDate(selectedMessage.created_at).date} at {formatDate(selectedMessage.created_at).time}
+              </div>
+              <div className="modal-content">
+                {renderMessageContent(selectedMessage)}
+              </div>
+              {selectedMessage.type === 'electricity_token' && selectedMessage.metadata?.token && (
+                <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <button 
+                    onClick={() => handleCopyToken(selectedMessage.metadata.token)}
+                    className="w-full flex items-center justify-center space-x-2 bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                  >
+                    <Copy className="h-4 w-4" />
+                    <span>Copy Token</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

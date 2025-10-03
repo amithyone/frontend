@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
+import { apiService } from '../services/api';
 import { 
   History, 
   Search, 
@@ -14,9 +15,8 @@ import {
   RefreshCw,
   TrendingUp,
   TrendingDown,
-  DollarSign,
-  CreditCard,
-  Zap
+  Zap,
+  Mail
 } from 'lucide-react';
 
 interface Transaction {
@@ -36,6 +36,9 @@ interface Transaction {
   units?: string;
   customerName?: string;
   meterType?: string;
+  // Inbox fields
+  hasInboxMessage?: boolean;
+  inboxMessageType?: string;
 }
 
 const Transactions: React.FC = () => {
@@ -148,7 +151,9 @@ const Transactions: React.FC = () => {
       token: '1234-5678-9012-3456',
       units: '45.5 kWh',
       customerName: 'John Doe',
-      meterType: 'prepaid'
+      meterType: 'prepaid',
+      hasInboxMessage: true,
+      inboxMessageType: 'electricity_token'
     }
   ];
 
@@ -203,6 +208,27 @@ const Transactions: React.FC = () => {
         return `${baseClasses} bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300`;
       default:
         return baseClasses;
+    }
+  };
+
+  const handleViewInbox = async (transaction: Transaction) => {
+    if (transaction.hasInboxMessage) {
+      try {
+        // Try to get the specific message for this transaction
+        const response = await apiService.getInboxMessages({ 
+          type: transaction.inboxMessageType
+        });
+        
+        if (response.status === 'success' && response.data && response.data.messages.length > 0) {
+          // Show message details in modal
+          setSelectedTransaction(transaction);
+          // You could also navigate to inbox page here
+        }
+      } catch (error) {
+        console.error('Failed to load inbox message:', error);
+        // Fallback: just show transaction details
+        setSelectedTransaction(transaction);
+      }
     }
   };
 
@@ -448,15 +474,30 @@ const Transactions: React.FC = () => {
                   {transaction.status}
                 </span>
               </div>
-              <button
-                onClick={() => setSelectedTransaction(transaction)}
-                className={`text-xs flex items-center space-x-1 ${
-                  isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'
-                }`}
-              >
-                <Eye className="h-3 w-3" />
-                <span>View</span>
-              </button>
+              <div className="flex flex-col space-y-1">
+                <button
+                  onClick={() => setSelectedTransaction(transaction)}
+                  className={`text-xs flex items-center space-x-1 ${
+                    isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'
+                  }`}
+                >
+                  <Eye className="h-3 w-3" />
+                  <span>View</span>
+                </button>
+                
+                {/* Add inbox link for transactions with inbox messages */}
+                {transaction.hasInboxMessage && (
+                  <button
+                    onClick={() => handleViewInbox(transaction)}
+                    className={`text-xs flex items-center space-x-1 ${
+                      isDark ? 'text-green-400 hover:text-green-300' : 'text-green-600 hover:text-green-700'
+                    }`}
+                  >
+                    <Mail className="h-3 w-3" />
+                    <span>Token Details</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         ))}

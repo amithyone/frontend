@@ -4,6 +4,7 @@ import WalletCard from './WalletCard';
 import ServiceGrid from './ServiceGrid';
 import QuickActions from './QuickActions';
 import RecentTransactions from './RecentTransactions';
+import Transactions from './Transactions';
 import ServerCard from './ServerCard';
 import Navigation from './Navigation';
 import BottomNavigation from './BottomNavigation';
@@ -37,11 +38,7 @@ const Dashboard: React.FC = () => {
           </>
         );
       case 'transactions':
-        return (
-          <>
-            <RecentTransactions />
-          </>
-        );
+        return <Transactions />;
       case 'settings':
         return (
           <>

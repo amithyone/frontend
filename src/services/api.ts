@@ -56,6 +56,33 @@ export interface OrderSmsNumberData { order_id: string | number; phone: string; 
 export interface GetSmsCodeBody { activation_id: string; user_id: number }
 export interface GetSmsCodeData { code?: string; status: 'pending' | 'received' | 'expired' }
 
+// Inbox
+export interface InboxMessage {
+  id: number;
+  user_id: number;
+  type: 'electricity_token' | 'general';
+  title: string;
+  message: string;
+  reference?: string;
+  is_read: boolean;
+  metadata?: any;
+  created_at: string;
+  updated_at: string;
+}
+export interface InboxMessagesResponse {
+  messages: InboxMessage[];
+  total: number;
+  current_page: number;
+  last_page: number;
+  per_page: number;
+}
+export interface UnreadCountResponse {
+  unread_count: number;
+}
+export interface MarkAsReadBody {
+  message_id: number;
+}
+
 // VTU
 export type VtuType = 'airtime' | 'data';
 export interface VtuServiceItem { id: number; name: string; type: VtuType; provider: string; price: number }
@@ -245,6 +272,57 @@ class ApiService {
       body: JSON.stringify(body),
       ...init,
     });
+  }
+
+  // Inbox
+  public async getInboxMessages(params: { type?: string; is_read?: boolean; limit?: number; page?: number } = {}, init?: RequestInit) {
+    const queryParams = new URLSearchParams();
+    if (params.type) queryParams.append('type', params.type);
+    if (params.is_read !== undefined) queryParams.append('is_read', params.is_read.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+    if (params.page) queryParams.append('page', params.page.toString());
+    
+    const endpoint = `/inbox/messages${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    return this.request<InboxMessagesResponse>(endpoint, { method: 'GET', ...init });
+  }
+
+  public async getInboxUnreadCount(init?: RequestInit) {
+    return this.request<UnreadCountResponse>('/inbox/unread-count', { method: 'GET', ...init });
+  }
+
+  public async markInboxMessageAsRead(body: MarkAsReadBody, init?: RequestInit) {
+    return this.request<{ success: boolean; message: string }>('/inbox/mark-read', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      ...init,
+    });
+  }
+
+  public async markAllInboxMessagesAsRead(init?: RequestInit) {
+    return this.request<{ success: boolean; message: string }>('/inbox/mark-all-read', {
+      method: 'POST',
+      ...init,
+    });
+  }
+
+  public async getInboxMessageDetails(messageId: number, init?: RequestInit) {
+    return this.request<InboxMessage>(`/inbox/message/${messageId}`, { method: 'GET', ...init });
+  }
+
+  public async deleteInboxMessage(messageId: number, init?: RequestInit) {
+    return this.request<{ success: boolean; message: string }>(`/inbox/message/${messageId}`, {
+      method: 'DELETE',
+      ...init,
+    });
+  }
+
+  public async getElectricityTokenMessages(params: { limit?: number; page?: number } = {}, init?: RequestInit) {
+    const queryParams = new URLSearchParams();
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+    if (params.page) queryParams.append('page', params.page.toString());
+    
+    const endpoint = `/inbox/electricity-tokens${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    return this.request<InboxMessagesResponse>(endpoint, { method: 'GET', ...init });
   }
 
   // Utilities
