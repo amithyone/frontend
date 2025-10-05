@@ -361,6 +361,247 @@ app.post('/api/vtu/validate/phone', authenticateTokenOptional, (req, res) => {
   res.json({ success: true, data: { is_valid: true, phone, network } });
 });
 
+// ------------------- Electricity API -------------------
+// GET electricity providers
+app.get('/api/electricity/providers', authenticateTokenOptional, (req, res) => {
+  const providers = [
+    { id: 'ikeja', name: 'Ikeja Electric' },
+    { id: 'ekedc', name: 'Eko Electricity Distribution Company' },
+    { id: 'aedc', name: 'Abuja Electricity Distribution Company' },
+    { id: 'phed', name: 'Port Harcourt Electricity Distribution Company' },
+    { id: 'kaedc', name: 'Kano Electricity Distribution Company' },
+    { id: 'kedco', name: 'Kaduna Electric Distribution Company' },
+    { id: 'jedc', name: 'Jos Electricity Distribution Company' },
+    { id: 'eedc', name: 'Enugu Electricity Distribution Company' },
+    { id: 'phedc', name: 'Portharcourt Electricity Distribution Company' },
+    { id: 'bedc', name: 'Benin Electricity Distribution Company' }
+  ];
+  res.json({ success: true, data: providers });
+});
+
+// POST verify electricity customer
+app.post('/api/electricity/verify', authenticateTokenOptional, (req, res) => {
+  const { service_id, customer_id, variation_id } = req.body || {};
+  
+  if (!service_id || !customer_id) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'service_id and customer_id are required' 
+    });
+  }
+
+  // Mock verification - in real implementation, call VTU provider
+  const mockCustomerNames = {
+    '1234567890': 'John Doe',
+    '0987654321': 'Jane Smith',
+    '1122334455': 'Mike Johnson',
+    '5544332211': 'Sarah Wilson'
+  };
+
+  const customerName = mockCustomerNames[customer_id] || 'Verified Customer';
+  
+  res.json({
+    success: true,
+    data: {
+      customer_name: customerName,
+      customer_id: customer_id,
+      service_id: service_id,
+      variation_id: variation_id
+    }
+  });
+});
+
+// POST purchase electricity
+app.post('/api/electricity/purchase', authenticateTokenOptional, (req, res) => {
+  const { service_id, customer_id, variation_id, amount } = req.body || {};
+  
+  if (!service_id || !customer_id || !amount) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'service_id, customer_id, and amount are required' 
+    });
+  }
+
+  // Simulate processing delay
+  setTimeout(() => {
+    // Mock success rate (90% success)
+    const isSuccess = Math.random() > 0.1;
+    
+    if (isSuccess) {
+      // Generate mock token and units
+      const token = Math.random().toString().substr(2, 16).replace(/(.{4})/g, '$1-').slice(0, -1);
+      const units = (amount / 50).toFixed(1); // Mock calculation: N50 per unit
+      
+      const reference = `ELEC${Date.now()}`;
+      
+      res.json({
+        success: true,
+        data: {
+          reference,
+          customer_id,
+          service_id,
+          variation_id,
+          amount: Number(amount),
+          token,
+          units: `${units} kWh`,
+          status: 'completed',
+          message: 'Electricity purchase successful',
+          receipt: {
+            token,
+            units: `${units} kWh`,
+            amount: Number(amount),
+            customer_name: 'Verified Customer',
+            date: new Date().toISOString()
+          }
+        }
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: 'Electricity purchase failed. Please try again.',
+        data: {
+          reference: `ELEC${Date.now()}`,
+          status: 'failed',
+          amount: Number(amount)
+        }
+      });
+    }
+  }, 2000); // 2 second delay to simulate processing
+});
+
+// ------------------- Transaction Management -------------------
+// In-memory transaction storage (replace with database in production)
+const transactions = [];
+const inboxMessages = [];
+
+// POST create transaction
+app.post('/api/transactions', authenticateTokenOptional, (req, res) => {
+  const { type, amount, description, reference, status, metadata } = req.body || {};
+  
+  const transaction = {
+    id: transactions.length + 1,
+    user_id: req.user?.userId || 1,
+    type: type || 'debit',
+    amount: Number(amount) || 0,
+    description: description || 'Transaction',
+    reference: reference || `TXN${Date.now()}`,
+    status: status || 'processing',
+    metadata: metadata || {},
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+  
+  transactions.push(transaction);
+  
+  res.json({
+    success: true,
+    data: transaction
+  });
+});
+
+// PUT update transaction status
+app.put('/api/transactions/:id', authenticateTokenOptional, (req, res) => {
+  const { id } = req.params;
+  const { status, metadata } = req.body || {};
+  
+  const transaction = transactions.find(t => t.id === parseInt(id));
+  if (!transaction) {
+    return res.status(404).json({
+      success: false,
+      message: 'Transaction not found'
+    });
+  }
+  
+  transaction.status = status || transaction.status;
+  transaction.metadata = { ...transaction.metadata, ...metadata };
+  transaction.updated_at = new Date().toISOString();
+  
+  res.json({
+    success: true,
+    data: transaction
+  });
+});
+
+// POST create inbox message
+app.post('/api/inbox/messages', authenticateTokenOptional, (req, res) => {
+  const { type, title, message, reference, metadata } = req.body || {};
+  
+  const inboxMessage = {
+    id: inboxMessages.length + 1,
+    user_id: req.user?.userId || 1,
+    type: type || 'general',
+    title: title || 'Notification',
+    message: message || '',
+    reference: reference || '',
+    is_read: false,
+    metadata: metadata || {},
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+  
+  inboxMessages.push(inboxMessage);
+  
+  res.json({
+    success: true,
+    data: inboxMessage
+  });
+});
+
+// GET user transactions
+app.get('/api/transactions', authenticateTokenOptional, (req, res) => {
+  const userId = req.user?.userId || 1;
+  const userTransactions = transactions.filter(t => t.user_id === userId);
+  
+  res.json({
+    success: true,
+    data: userTransactions.reverse() // Most recent first
+  });
+});
+
+// GET inbox messages
+app.get('/api/inbox/messages', authenticateTokenOptional, (req, res) => {
+  const userId = req.user?.userId || 1;
+  const { type, is_read, limit = 20, page = 1 } = req.query;
+  
+  let userMessages = inboxMessages.filter(m => m.user_id === userId);
+  
+  if (type) {
+    userMessages = userMessages.filter(m => m.type === type);
+  }
+  
+  if (is_read !== undefined) {
+    userMessages = userMessages.filter(m => m.is_read === (is_read === 'true'));
+  }
+  
+  const startIndex = (page - 1) * limit;
+  const endIndex = startIndex + parseInt(limit);
+  const paginatedMessages = userMessages.slice(startIndex, endIndex);
+  
+  res.json({
+    success: true,
+    data: {
+      messages: paginatedMessages,
+      total: userMessages.length,
+      current_page: parseInt(page),
+      last_page: Math.ceil(userMessages.length / limit),
+      per_page: parseInt(limit)
+    }
+  });
+});
+
+// GET inbox unread count
+app.get('/api/inbox/unread-count', authenticateTokenOptional, (req, res) => {
+  const userId = req.user?.userId || 1;
+  const unreadCount = inboxMessages.filter(m => m.user_id === userId && !m.is_read).length;
+  
+  res.json({
+    success: true,
+    data: {
+      unread_count: unreadCount
+    }
+  });
+});
+
 // Allow missing/invalid token for dev convenience
 function authenticateTokenOptional(req, res, next) {
   const authHeader = req.headers['authorization'];

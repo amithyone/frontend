@@ -119,46 +119,168 @@ const ElectricityModal: React.FC<ElectricityModalProps> = ({ isOpen, onClose }) 
       return;
     }
     setIsLoading(true);
+    
+    let transactionId = null;
+    
     try {
       const token = localStorage.getItem('auth_token') || localStorage.getItem('authToken') || '';
+      
+      // Step 1: Create transaction record with "processing" status
+      const transactionResp = await fetch(`${API_VTU_URL}/transactions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          type: 'debit',
+          amount: amt,
+          description: `Electricity bill payment - ${providers.find(p => p.id === serviceId)?.name || 'Unknown Provider'}`,
+          reference: `ELEC${Date.now()}`,
+          status: 'processing',
+          metadata: {
+            service_id: serviceId,
+            customer_id: customerId,
+            variation_id: meterType,
+            customer_name: verifiedName
+          }
+        }),
+      });
+      
+      const transactionData = await transactionResp.json();
+      if (transactionData.success) {
+        transactionId = transactionData.data.id;
+      }
+      
+      // Step 2: Attempt electricity purchase
       const resp = await fetch(`${API_VTU_URL}/electricity/purchase`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ service_id: serviceId, customer_id: customerId, variation_id: meterType, amount: amt }),
       });
+      
       const ct = resp.headers.get('content-type') || '';
       if (!ct.includes('application/json')) throw new Error('Unexpected response type');
       const data = await resp.json();
-      if (!data.success) throw new Error(data.message || 'Electricity purchase failed');
       
-      // Save the meter/account number after successful purchase
-      addCustomerToHistory(customerId);
+      if (data.success) {
+        // Step 3: Update transaction status to "completed"
+        if (transactionId) {
+          await fetch(`${API_VTU_URL}/transactions/${transactionId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({
+              status: 'completed',
+              metadata: {
+                token: data.data?.token,
+                units: data.data?.units,
+                reference: data.data?.reference
+              }
+            }),
+          });
+        }
+        
+        // Step 4: Store electricity token in inbox
+        await fetch(`${API_VTU_URL}/inbox/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            type: 'electricity_token',
+            title: '🔆 Fadded VIP Electricity Token',
+            message: `Your electricity token has been generated successfully. Token: ${data.data?.token || 'N/A'}, Units: ${data.data?.units || 'N/A'}`,
+            reference: data.data?.reference || `ELEC${Date.now()}`,
+            metadata: {
+              token: data.data?.token,
+              units: data.data?.units,
+              customer_name: verifiedName,
+              amount: amt,
+              provider: providers.find(p => p.id === serviceId)?.name || 'Unknown'
+            }
+          }),
+        });
+        
+        // Save the meter/account number after successful purchase
+        addCustomerToHistory(customerId);
+        
+        // Store purchase result for receipt display
+        setPurchaseResult({
+          reference: data.data?.reference || `ELEC${Date.now()}`,
+          customerId: customerId,
+          customerName: verifiedName,
+          amount: amt,
+          provider: providers.find(p => p.id === serviceId)?.name || 'Unknown',
+          meterType: meterType,
+          token: data.data?.token || data.data?.receipt?.token || 'N/A',
+          units: data.data?.units || data.data?.receipt?.units || 'N/A',
+          date: new Date().toLocaleString(),
+          ...data.data
+        });
+        
+        setMsg({ 
+          type: 'success', 
+          text: 'Electricity purchased successfully! Token sent to your SMS and inbox. Click to view receipt.' 
+        });
+        setShowReceipt(true);
+        
+        // Clear form
+        setCustomerId('');
+        setAmount('');
+        setVerifiedName(null);
+        
+      } else {
+        // Step 3: Update transaction status to "failed" and refund user
+        if (transactionId) {
+          await fetch(`${API_VTU_URL}/transactions/${transactionId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({
+              status: 'failed',
+              metadata: {
+                error_message: data.message,
+                refunded: true
+              }
+            }),
+          });
+        }
+        
+        // Create refund notification in inbox
+        await fetch(`${API_VTU_URL}/inbox/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            type: 'general',
+            title: '💳 Refund Notification',
+            message: `Your electricity purchase failed and ₦${amt.toLocaleString()} has been refunded to your wallet. Reference: ${data.data?.reference || 'N/A'}`,
+            reference: data.data?.reference || `REFUND${Date.now()}`,
+            metadata: {
+              amount: amt,
+              original_reference: data.data?.reference,
+              refund_reason: data.message
+            }
+          }),
+        });
+        
+        throw new Error(data.message || 'Electricity purchase failed');
+      }
       
-      // Store purchase result for receipt display
-      setPurchaseResult({
-        reference: data.data?.reference || `ELEC${Date.now()}`,
-        customerId: customerId,
-        customerName: verifiedName,
-        amount: amt,
-        provider: providers.find(p => p.id === serviceId)?.name || 'Unknown',
-        meterType: meterType,
-        token: data.data?.token || data.data?.receipt?.token || 'N/A',
-        units: data.data?.units || data.data?.receipt?.units || 'N/A',
-        date: new Date().toLocaleString(),
-        ...data.data
-      });
-      
-      setMsg({ 
-        type: 'success', 
-        text: 'Electricity purchased successfully! Token sent to your SMS and inbox. Click to view receipt.' 
-      });
-      setShowReceipt(true);
-      
-      // Clear form
-      setCustomerId('');
-      setAmount('');
-      setVerifiedName(null);
     } catch (e: any) {
+      // Update transaction status to "failed" if we have a transaction ID
+      if (transactionId) {
+        try {
+          const token = localStorage.getItem('auth_token') || localStorage.getItem('authToken') || '';
+          await fetch(`${API_VTU_URL}/transactions/${transactionId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({
+              status: 'failed',
+              metadata: {
+                error_message: e.message,
+                refunded: true
+              }
+            }),
+          });
+        } catch (updateError) {
+          console.error('Failed to update transaction status:', updateError);
+        }
+      }
+      
       setMsg({ type: 'error', text: e?.message || 'Electricity purchase failed' });
     } finally {
       setIsLoading(false);

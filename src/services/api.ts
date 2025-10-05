@@ -193,6 +193,22 @@ class ApiService {
     }
   }
 
+  public async createTransaction(body: { type: string; amount: number; description: string; reference?: string; status: string; metadata?: any }, init?: RequestInit) {
+    return this.request<TransactionItem>('/transactions', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      ...init,
+    });
+  }
+
+  public async updateTransaction(id: number, body: { status?: string; metadata?: any }, init?: RequestInit) {
+    return this.request<TransactionItem>(`/transactions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+      ...init,
+    });
+  }
+
   // Wallet
   public async getWalletStats(init?: RequestInit) {
     return this.request<{ totalTopUps: number; totalSpent: number }>('/wallet/stats', { method: 'GET', ...init });
@@ -323,6 +339,14 @@ class ApiService {
     
     const endpoint = `/inbox/electricity-tokens${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     return this.request<InboxMessagesResponse>(endpoint, { method: 'GET', ...init });
+  }
+
+  public async createInboxMessage(body: { type: string; title: string; message: string; reference?: string; metadata?: any }, init?: RequestInit) {
+    return this.request<InboxMessage>('/inbox/messages', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      ...init,
+    });
   }
 
   // Utilities
