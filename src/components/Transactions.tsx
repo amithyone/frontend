@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
-import { apiService } from '../services/api';
+import { apiService, TransactionItem } from '../services/api';
 import { 
   History, 
   Search, 
@@ -19,16 +19,10 @@ import {
   Mail
 } from 'lucide-react';
 
-interface Transaction {
-  id: string;
-  type: 'credit' | 'debit';
-  category: 'virtual_number' | 'airtime' | 'data' | 'cable_tv' | 'betting' | 'electricity' | 'recharge_card' | 'wallet_topup';
-  amount: number;
-  description: string;
-  status: 'completed' | 'pending' | 'failed';
-  date: string;
-  time: string;
-  reference?: string;
+interface Transaction extends TransactionItem {
+  category?: 'virtual_number' | 'airtime' | 'data' | 'cable_tv' | 'betting' | 'electricity' | 'recharge_card' | 'wallet_topup';
+  date?: string;
+  time?: string;
   service?: string;
   recipient?: string;
   // Electricity-specific fields
@@ -50,112 +44,43 @@ const Transactions: React.FC = () => {
   const [dateRange, setDateRange] = useState<'all' | 'today' | 'week' | 'month'>('all');
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const transactions: Transaction[] = [
-    {
-      id: 'TXN001',
-      type: 'credit',
-      category: 'wallet_topup',
-      amount: 10000,
-      description: 'Wallet Top-up via Bank Transfer',
-      status: 'completed',
-      date: '2024-01-15',
-      time: '14:30',
-      reference: 'REF123456789',
-      service: 'Bank Transfer'
-    },
-    {
-      id: 'TXN002',
-      type: 'debit',
-      category: 'virtual_number',
-      amount: 150,
-      description: 'WhatsApp Virtual Number',
-      status: 'completed',
-      date: '2024-01-15',
-      time: '13:45',
-      service: 'WhatsApp',
-      recipient: '+234901234567'
-    },
-    {
-      id: 'TXN003',
-      type: 'debit',
-      category: 'airtime',
-      amount: 1000,
-      description: 'MTN Airtime Purchase',
-      status: 'completed',
-      date: '2024-01-15',
-      time: '12:20',
-      service: 'MTN',
-      recipient: '08012345678'
-    },
-    {
-      id: 'TXN004',
-      type: 'credit',
-      category: 'wallet_topup',
-      amount: 5000,
-      description: 'Wallet Top-up via Bank Transfer',
-      status: 'pending',
-      date: '2024-01-15',
-      time: '11:15',
-      reference: 'REF987654321',
-      service: 'Bank Transfer'
-    },
-    {
-      id: 'TXN005',
-      type: 'debit',
-      category: 'cable_tv',
-      amount: 6200,
-      description: 'DStv Confam Subscription',
-      status: 'completed',
-      date: '2024-01-14',
-      time: '16:30',
-      service: 'DStv',
-      recipient: '1234567890'
-    },
-    {
-      id: 'TXN006',
-      type: 'debit',
-      category: 'data',
-      amount: 1500,
-      description: 'Airtel 5GB Data Bundle',
-      status: 'completed',
-      date: '2024-01-14',
-      time: '15:20',
-      service: 'Airtel',
-      recipient: '08098765432'
-    },
-    {
-      id: 'TXN007',
-      type: 'debit',
-      category: 'betting',
-      amount: 2000,
-      description: 'Bet9ja Wallet Funding',
-      status: 'failed',
-      date: '2024-01-14',
-      time: '14:10',
-      service: 'Bet9ja',
-      recipient: 'user123456'
-    },
-    {
-      id: 'TXN008',
-      type: 'debit',
-      category: 'electricity',
-      amount: 5000,
-      description: 'EKEDC Electricity Bill',
-      status: 'completed',
-      date: '2024-01-13',
-      time: '10:45',
-      service: 'EKEDC',
-      recipient: '12345678901',
-      reference: 'ELEC202401131045',
-      token: '1234-5678-9012-3456',
-      units: '45.5 kWh',
-      customerName: 'John Doe',
-      meterType: 'prepaid',
-      hasInboxMessage: true,
-      inboxMessageType: 'electricity_token'
-    }
-  ];
+  // Fetch transactions from API
+  useEffect(() => {
+    const loadTransactions = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await apiService.getUserTransactions();
+        
+        if (response.status === 'success' && response.data) {
+          // Transform API data to match our interface
+          const transformedTransactions: Transaction[] = response.data.map((tx: any) => ({
+            ...tx,
+            date: new Date(tx.created_at).toLocaleDateString(),
+            time: new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            // Check if this is an electricity transaction with inbox message
+            hasInboxMessage: tx.description?.toLowerCase().includes('electricity') || tx.description?.toLowerCase().includes('token'),
+            inboxMessageType: tx.description?.toLowerCase().includes('electricity') ? 'electricity_token' : undefined
+          }));
+          
+          setTransactions(transformedTransactions);
+        } else {
+          setError('Failed to load transactions');
+        }
+      } catch (error) {
+        console.error('Error loading transactions:', error);
+        setError('Failed to load transactions');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTransactions();
+  }, []);
 
   const categories = [
     { id: 'all', name: 'All Categories' },
@@ -424,7 +349,33 @@ const Transactions: React.FC = () => {
 
       {/* Transactions List */}
       <div className="space-y-3">
-        {filteredTransactions.map((transaction) => (
+        {loading ? (
+          <div className="text-center py-12">
+            <RefreshCw className="h-8 w-8 mx-auto mb-4 animate-spin text-blue-500" />
+            <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Loading transactions...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-12">
+            <XCircle className="h-12 w-12 mx-auto mb-4 text-red-500" />
+            <h3 className={`text-lg font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              Error loading transactions
+            </h3>
+            <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        ) : filteredTransactions.length === 0 ? (
+          <div className="text-center py-12">
+            <History className={`h-12 w-12 mx-auto mb-4 ${isDark ? 'text-gray-600' : 'text-gray-400'}`} />
+            <h3 className={`text-lg font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>No transactions found</h3>
+            <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Try adjusting your search or filters</p>
+          </div>
+        ) : (
+          filteredTransactions.map((transaction) => (
           <div key={transaction.id} className={`flex items-center justify-between p-4 rounded-xl shadow-sm border transition-all duration-200 hover:shadow-md ${
             isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'
           }`}>
@@ -500,23 +451,10 @@ const Transactions: React.FC = () => {
               </div>
             </div>
           </div>
-        ))}
+          ))
+        )}
       </div>
 
-      {/* No Results */}
-      {filteredTransactions.length === 0 && (
-        <div className="text-center py-12">
-          <History className={`h-12 w-12 mx-auto mb-4 ${
-            isDark ? 'text-gray-600' : 'text-gray-400'
-          }`} />
-          <h3 className={`text-lg font-semibold mb-2 ${
-            isDark ? 'text-white' : 'text-gray-900'
-          }`}>No transactions found</h3>
-          <p className={`${
-            isDark ? 'text-gray-400' : 'text-gray-600'
-          }`}>Try adjusting your search or filters</p>
-        </div>
-      )}
 
       {/* Transaction Detail Modal */}
       {selectedTransaction && (
