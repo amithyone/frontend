@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FaddedSMS - Test Servers API</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .server { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #3b82f6; }
+        .server h3 { margin: 0 0 10px 0; color: #1e40af; }
+        .server p { margin: 5px 0; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; padding: 15px; background: #fee; border-radius: 8px; }
+        button { background: #3b82f6; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; margin: 10px 0; }
+        button:hover { background: #2563eb; }
+    </style>
+</head>
+<body>
+    <h1>🔍 FaddedSMS Servers API Test</h1>
+    <button onclick="testServers()">🔄 Test Servers API</button>
+    <button onclick="clearCache()">🗑️ Clear LocalStorage Cache</button>
+    
+    <div id="result"></div>
+
+    <script>
+        const API_URL = 'https://api.fadsms.com/api';
+
+        async function testServers() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>Loading...</p>';
+
+            try {
+                const response = await fetch(`${API_URL}/servers`);
+                const data = await response.json();
+
+                if (data.status === 'success' && data.data) {
+                    let html = `<p class="success">✅ API Response: ${data.status}</p>`;
+                    html += `<p><strong>Total Servers: ${data.data.length}</strong></p>`;
+                    
+                    data.data.forEach((server, index) => {
+                        html += `
+                            <div class="server">
+                                <h3>#${index + 1} ${server.name || server.display_name}</h3>
+                                <p><strong>Provider:</strong> ${server.provider}</p>
+                                <p><strong>Status:</strong> ${server.status}</p>
+                                <p><strong>Priority:</strong> ${server.priority}</p>
+                                <p><strong>Success Rate:</strong> ${server.success_rate}%</p>
+                                <p><strong>Location:</strong> ${server.location}</p>
+                                <p><strong>Orders:</strong> ${server.successful_orders}/${server.total_orders}</p>
+                            </div>
+                        `;
+                    });
+
+                    // Check for 5sim specifically
+                    const fivesim = data.data.find(s => s.provider === '5sim');
+                    if (fivesim) {
+                        html += `<p class="success">✅ 5SIM FOUND in API response!</p>`;
+                    } else {
+                        html += `<p class="error">❌ 5SIM NOT FOUND in API response</p>`;
+                    }
+
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">Error: ${data.message || 'Invalid response'}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        function clearCache() {
+            localStorage.removeItem('sms:servers');
+            alert('✅ LocalStorage cache cleared! Now refresh the page.');
+        }
+
+        // Auto-run test on page load
+        window.addEventListener('load', testServers);
+    </script>
+</body>
+</html>
+

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { API_AUTH_URL } from '../services/api';
+// import { API_AUTH_URL } from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -18,7 +18,7 @@ const ForgotPassword: React.FC = () => {
       setError(null);
       setMessage(null);
               // Conventional Laravel endpoint; adjust if needed
-        const base = API_AUTH_URL;
+        const base = 'https://api.fadsms.com/api';
       const resp = await fetch(`${base}/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },

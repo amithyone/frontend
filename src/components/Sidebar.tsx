@@ -7,7 +7,8 @@ import {
   Settings, 
   X,
   Phone,
-  CreditCard
+  CreditCard,
+  Users
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -23,6 +24,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage, isOpen, 
     { id: 'services', name: 'Services', icon: Shield },
     { id: 'wallet', name: 'Wallet', icon: Wallet },
     { id: 'transactions', name: 'Transactions', icon: History },
+    { id: 'referral', name: '💰 Referral Program', icon: Users },
     { id: 'settings', name: 'Settings', icon: Settings },
   ];
 
@@ -43,8 +45,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage, isOpen, 
         <div className="p-4">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center space-x-2">
-              <Phone className="h-8 w-8 text-orange-500" />
-              <span className="text-xl font-bold">FaddedSMS</span>
+              <img src="/logo.svg" alt="FaddedSMS" className="h-8 w-8" />
+              <span className="text-sm font-semibold whitespace-nowrap">FaddedSMS v2</span>
             </div>
             <button
               onClick={onClose}

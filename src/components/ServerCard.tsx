@@ -14,8 +14,8 @@ const ServerCard: React.FC = () => {
 
   const topServers = [
     { name: 'FaddedSMS Premium', country: '🇳🇬', status: 'online', reliability: 99.8 },
-    { name: 'SMS-Activate', country: '🇷🇺', status: 'online', reliability: 98.5 },
-    { name: '5SIM Global', country: '🌍', status: 'online', reliability: 97.2 }
+    { name: 'FADDED GLOBAL', country: '🇷🇺', status: 'online', reliability: 98.5 },
+    { name: 'FADDED SIM', country: '🌍', status: 'online', reliability: 97.2 }
   ];
 
   return (

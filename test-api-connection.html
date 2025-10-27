@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Connection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>FaddedSMS API Connection Test</h1>
+    <p>This page tests the API connectivity and CORS configuration.</p>
+    
+    <button onclick="testAPI()">Test API Connection</button>
+    <button onclick="clearResults()">Clear Results</button>
+    
+    <div id="results"></div>
+
+    <script>
+        const API_BASE = 'https://api.fadsms.com/api';
+        
+        function addResult(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            results.appendChild(div);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        async function testAPI() {
+            addResult('Starting API connection tests...', 'info');
+            
+            // Test 1: VTU Airtime Networks
+            try {
+                const response = await fetch(`${API_BASE}/vtu/airtime/networks`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                if (response.ok) {
+                    addResult(`✅ VTU Airtime Networks: ${response.status} ${response.statusText}`, 'success');
+                } else {
+                    addResult(`❌ VTU Airtime Networks: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                addResult(`❌ VTU Airtime Networks Error: ${error.message}`, 'error');
+            }
+            
+            // Test 2: VTU Data Networks
+            try {
+                const response = await fetch(`${API_BASE}/vtu/data/networks`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                if (response.ok) {
+                    addResult(`✅ VTU Data Networks: ${response.status} ${response.statusText}`, 'success');
+                } else {
+                    addResult(`❌ VTU Data Networks: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                addResult(`❌ VTU Data Networks Error: ${error.message}`, 'error');
+            }
+            
+            // Test 3: User endpoint (should return 401 without auth)
+            try {
+                const response = await fetch(`${API_BASE}/user`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                if (response.status === 401) {
+                    addResult(`✅ User endpoint: ${response.status} ${response.statusText} (Expected - no auth)`, 'success');
+                } else {
+                    addResult(`⚠️ User endpoint: ${response.status} ${response.statusText}`, 'info');
+                }
+            } catch (error) {
+                addResult(`❌ User endpoint Error: ${error.message}`, 'error');
+            }
+            
+            // Test 4: Provider Balance
+            try {
+                const response = await fetch(`${API_BASE}/vtu/provider/balance`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                if (response.ok) {
+                    addResult(`✅ Provider Balance: ${response.status} ${response.statusText}`, 'success');
+                } else {
+                    addResult(`⚠️ Provider Balance: ${response.status} ${response.statusText}`, 'info');
+                }
+            } catch (error) {
+                addResult(`❌ Provider Balance Error: ${error.message}`, 'error');
+            }
+            
+            addResult('API connection tests completed!', 'info');
+        }
+        
+        // Auto-run test on page load
+        window.addEventListener('load', () => {
+            addResult('Page loaded. Click "Test API Connection" to run tests.', 'info');
+        });
+    </script>
+</body>
+</html>
+

@@ -27,6 +27,7 @@ const Login: React.FC = () => {
     }
   };
 
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-oxford-blue via-oxford-blue-light to-oxford-blue-dark flex items-center justify-center px-6">
       <div className="w-full max-w-md">
@@ -146,7 +147,48 @@ const Login: React.FC = () => {
 
           {/* Social Login */}
           <div className="space-y-3">
-            <button className="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-medium py-3 px-4 rounded-lg transition-all flex items-center justify-center">
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  const width = 500; const height = 600;
+                  const left = window.screenX + Math.max(0, (window.outerWidth - width) / 2);
+                  const top = window.screenY + Math.max(0, (window.outerHeight - height) / 2);
+                  const features = `popup=yes,toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes,width=${width},height=${height},left=${left},top=${top}`;
+                  const url = 'https://api.fadsms.com/api/auth/google?mode=popup';
+                  const popup = window.open(url, 'google_oauth_popup', features);
+                  if (!popup) {
+                    // Fallback if popup blocked
+                    window.location.href = 'https://api.fadsms.com/api/auth/google';
+                    return;
+                  }
+                  const handleMessage = (event: MessageEvent) => {
+                    try {
+                      const allowedOrigins = ['https://api.fadsms.com'];
+                      if (!allowedOrigins.includes(event.origin)) return;
+                      const data: any = event.data || {};
+                      if (data && data.type === 'oauth_result' && data.token && data.user) {
+                        localStorage.setItem('auth_token', data.token);
+                        localStorage.setItem('auth_user', JSON.stringify(data.user));
+                        window.dispatchEvent(new CustomEvent('auth:token-updated', { detail: { token: data.token, user: data.user } } as any));
+                        try { popup.close(); } catch {}
+                        window.location.href = '/dashboard';
+                      }
+                    } catch {}
+                  };
+                  window.addEventListener('message', handleMessage);
+                  const timer = window.setInterval(() => {
+                    if (popup.closed) {
+                      window.removeEventListener('message', handleMessage);
+                      window.clearInterval(timer);
+                    }
+                  }, 300);
+                } catch (e) {
+                  window.location.href = 'https://api.fadsms.com/api/auth/google';
+                }
+              }}
+              className="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-medium py-3 px-4 rounded-lg transition-all flex items-center justify-center"
+            >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                 <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                 <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
-import WalletCard from './WalletCard';
+import WalletCarousel from './WalletCarousel';
 import ServiceGrid from './ServiceGrid';
 import QuickActions from './QuickActions';
+import AdvertisementSection from './AdvertisementSection';
 import RecentTransactions from './RecentTransactions';
 import Transactions from './Transactions';
 import ServerCard from './ServerCard';
@@ -10,21 +11,38 @@ import Navigation from './Navigation';
 import BottomNavigation from './BottomNavigation';
 import Inbox from './Inbox';
 import TopUpModal from './TopUpModal';
+import Wallet from './Wallet';
+import Settings from './Settings';
+import Support from './Support';
+import Referral from './Referral';
+import { notificationPoller } from '../services/notificationPoller';
 
 const Dashboard: React.FC = () => {
   const { isDark } = useTheme();
   const [currentPage, setCurrentPage] = useState<'home' | 'services'>('home');
-  const [bottomCurrentPage, setBottomCurrentPage] = useState<'dashboard' | 'inbox' | 'wallet' | 'transactions' | 'settings'>('dashboard');
+  const [bottomCurrentPage, setBottomCurrentPage] = useState<'dashboard' | 'inbox' | 'wallet' | 'transactions' | 'settings' | 'support' | 'referral'>('dashboard');
   const [showTopUp, setShowTopUp] = useState(false);
+
+  // Start notification polling when dashboard mounts
+  useEffect(() => {
+    // Start polling for notifications
+    notificationPoller.start();
+
+    // Cleanup on unmount
+    return () => {
+      notificationPoller.stop();
+    };
+  }, []);
 
   const renderContent = () => {
     switch (bottomCurrentPage) {
       case 'dashboard':
         return (
           <>
-            <WalletCard onFund={() => setShowTopUp(true)} />
+            <WalletCarousel onFund={() => setShowTopUp(true)} />
             <ServiceGrid />
             <QuickActions />
+            <AdvertisementSection />
             <ServerCard />
             <RecentTransactions />
           </>
@@ -32,22 +50,15 @@ const Dashboard: React.FC = () => {
       case 'inbox':
         return <Inbox />;
       case 'wallet':
-        return (
-          <>
-            <WalletCard onFund={() => setShowTopUp(true)} />
-          </>
-        );
+        return <Wallet />;
       case 'transactions':
         return <Transactions />;
+      case 'support':
+        return <Support />;
       case 'settings':
-        return (
-          <>
-            <div className={`p-4 rounded-xl border ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'}`}>
-              <h3 className="text-lg font-semibold mb-2">Settings</h3>
-              <p className="text-sm opacity-80">Settings page coming soon.</p>
-            </div>
-          </>
-        );
+        return <Settings />;
+      case 'referral':
+        return <Referral />;
       default:
         return null;
     }

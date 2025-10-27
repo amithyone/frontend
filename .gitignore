@@ -6,6 +6,11 @@ package-lock.json
 dist/
 build/
 
+# Public assets (build files)
+public/assets/
+public/*.js
+public/*.css
+
 # Environment variables
 .env
 .env.local

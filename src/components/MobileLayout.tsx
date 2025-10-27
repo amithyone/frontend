@@ -35,9 +35,9 @@ const MobileLayout: React.FC<MobileLayoutProps> = ({
             >
               <Menu className="h-6 w-6" />
             </button>
-            <div>
-              <h1 className="text-xl font-bold">FaddedSMS</h1>
-              <p className="text-xs text-blue-200">Multi-service phone verification platform</p>
+            <div className="flex items-center space-x-2">
+              <img src="/logo.svg" alt="FaddedSMS" className="h-8 w-8" />
+              <span className="text-sm font-semibold whitespace-nowrap">FaddedSMS v2</span>
             </div>
           </div>
           <div className="flex items-center space-x-2">

@@ -14,6 +14,7 @@ import {
   Star,
   Gauge
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import VirtualNumberModal from './VirtualNumberModal';
 import AirtimeModal from './AirtimeModal';
 import DataBundleModal from './DataBundleModal';
@@ -38,20 +39,11 @@ const ServiceGrid: React.FC = () => {
     {
       id: 'virtual-verify',
       name: 'Virtual Verify Number',
-      description: 'Auto mode - Best provider automatically selected',
+      description: 'WhatsApp & popular services prioritized - Auto provider selection',
       icon: Shield,
       color: 'bg-purple-500',
       textColor: 'text-purple-500',
       onClick: () => setShowVirtualModal(true)
-    },
-    {
-      id: 'server-selection',
-      name: 'Choose Server',
-      description: 'Manual mode - Select specific SMS provider',
-      icon: Server,
-      color: 'bg-indigo-500',
-      textColor: 'text-indigo-500',
-      onClick: () => setShowServerModal(true)
     },
     {
       id: 'airtime',
@@ -71,6 +63,14 @@ const ServiceGrid: React.FC = () => {
       textColor: 'text-blue-500',
       onClick: () => setShowDataBundleModal(true)
     }
+  ];
+
+  const providerCards = [
+    { id: 'fadded-pool', title: 'FADDED POOL', href: '/faddedpool', emoji: '🏊', color: 'bg-indigo-500' },
+    { id: 'fadded-usa-only', title: 'Fadded USA Only', href: '/faddedusaonly', emoji: '🇺🇸', color: 'bg-red-500' },
+    { id: 'fadded-sim', title: 'Fadded SIM', href: '/faddedsim', emoji: '📱', color: 'bg-emerald-500' },
+    { id: 'fadded-global', title: 'Fadded Global', href: '/faddedglobal', emoji: '🌍', color: 'bg-blue-500' },
+    { id: 'fadded-verified', title: 'Fadded Verified', href: '/faddedverified', emoji: '✅', color: 'bg-yellow-500' },
   ];
 
   return (
@@ -106,6 +106,28 @@ const ServiceGrid: React.FC = () => {
             </button>
           );
         })}
+      </div>
+
+      {/* Provider Pages */}
+      <div className="mt-6">
+        <h3 className={`text-sm font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>Provider Pages</h3>
+        <div className="grid grid-cols-2 gap-3">
+          {providerCards.map(card => (
+            <Link
+              to={card.href}
+              key={card.id}
+              className={`rounded-xl p-4 border shadow-sm transition-all duration-200 hover:shadow-md active:scale-95 ${
+                isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className={`p-2 rounded-lg ${card.color} bg-opacity-10`}>{card.emoji}</div>
+                <ChevronRight className={`h-5 w-5 ${isDark ? 'text-gray-400' : 'text-gray-400'}`} />
+              </div>
+              <div className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>{card.title}</div>
+            </Link>
+          ))}
+        </div>
       </div>
       
       <VirtualNumberModal 

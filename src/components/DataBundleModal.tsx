@@ -265,6 +265,9 @@ const DataBundleModal: React.FC<DataBundleModalProps> = ({ isOpen, onClose }) =>
                           <div className="font-medium text-sm">{bundle.name}</div>
                           <div className="text-xs text-gray-500">
                             {bundle.size} • {bundle.validity}
+                            {bundle.availability && bundle.availability !== 'Available' && (
+                              <span className="ml-2 text-red-500">• {bundle.availability}</span>
+                            )}
                           </div>
                           {bundle.description && (
                             <div className="text-xs text-gray-400 mt-1">

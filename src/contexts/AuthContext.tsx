@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { API_AUTH_URL } from '../services/api';
+// import { API_AUTH_URL } from '../services/api';
 
 export interface AuthUser {
   id: number;
@@ -9,6 +9,7 @@ export interface AuthUser {
   email?: string;
   wallet?: number; // Add wallet balance
   balance?: number; // Add balance field from users table
+  wallet_balance?: number; // Add wallet_balance field for compatibility
 }
 
 interface AuthContextValue {
@@ -36,7 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Fetch fresh user profile from backend to ensure wallet matches DB
       const loadProfile = async () => {
         try {
-          const base = API_AUTH_URL;
+          const base = 'https://api.fadsms.com/api';
           const resp = await fetch(`${base}/user`, {
             headers: {
               'Accept': 'application/json',
@@ -65,6 +66,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [token]);
 
+  // Listen for auth token updates from Google OAuth callback
+  useEffect(() => {
+    const handleAuthTokenUpdate = (event: CustomEvent) => {
+      const { token: newToken, user: newUser } = event.detail;
+      if (newToken && newUser) {
+        console.log('AuthContext: Received token update from Google OAuth callback');
+        setToken(newToken);
+        setUser(newUser);
+      }
+    };
+
+    window.addEventListener('auth:token-updated', handleAuthTokenUpdate as EventListener);
+    
+    return () => {
+      window.removeEventListener('auth:token-updated', handleAuthTokenUpdate as EventListener);
+    };
+  }, []);
+
+  // Check for token updates on page load (for cases where the page is refreshed after OAuth callback)
+  useEffect(() => {
+    const checkForStoredToken = () => {
+      const storedToken = localStorage.getItem('auth_token');
+      const storedUser = localStorage.getItem('auth_user');
+      
+      if (storedToken && storedUser && (!token || token !== storedToken)) {
+        console.log('AuthContext: Found stored token on page load, updating state');
+        setToken(storedToken);
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch (e) {
+          console.error('Error parsing stored user:', e);
+        }
+      }
+    };
+
+    // Check immediately
+    checkForStoredToken();
+    
+    // Also check after a short delay to catch any race conditions
+    const timeoutId = setTimeout(checkForStoredToken, 100);
+    
+    return () => clearTimeout(timeoutId);
+  }, [token]);
+
   useEffect(() => {
     if (user) {
       localStorage.setItem('auth_user', JSON.stringify(user));
@@ -74,7 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user]);
 
   const register = useCallback(async (email: string, password: string, userData?: { firstName?: string; lastName?: string }) => {
-    const base = API_AUTH_URL;
+    const base = 'https://api.fadsms.com/api';
     const resp = await fetch(`${base}/register`, {
       method: 'POST',
       headers: {
@@ -82,15 +127,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         'Accept': 'application/json',
       },
       body: JSON.stringify({ 
+        name: `${userData?.firstName || ''} ${userData?.lastName || ''}`.trim() || email,
         email, 
         password, 
-        password_confirmation: password,
-        name: `${userData?.firstName || ''} ${userData?.lastName || ''}`.trim() || email
+        password_confirmation: password
       }),
     });
     
     if (!resp.ok) {
       const errorData = await resp.json();
+      console.error('Registration error:', errorData);
+      
+      // Handle validation errors
+      if (errorData.errors && typeof errorData.errors === 'object') {
+        const errorMessages = Object.values(errorData.errors).flat();
+        throw new Error(errorMessages.join(', '));
+      }
+      
       throw new Error(errorData.message || 'Registration failed');
     }
     
@@ -125,7 +178,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = useCallback(async (email: string, password: string) => {
     // Use Laravel login endpoint
-    const base = API_AUTH_URL;
+    const base = 'https://api.fadsms.com/api';
     const resp = await fetch(`${base}/login`, {
       method: 'POST',
       headers: {
@@ -172,7 +225,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(newUser ?? null);
     // After login, fetch fresh profile to ensure wallet sync
     try {
-      const base = API_AUTH_URL;
+      const base = 'https://api.fadsms.com/api';
       const resp = await fetch(`${base}/user`, {
         headers: {
           'Accept': 'application/json',
@@ -211,7 +264,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const currentToken = localStorage.getItem('auth_token') || token;
       if (currentToken) {
-        const base = API_AUTH_URL;
+        const base = 'https://api.fadsms.com/api';
         await fetch(`${base}/logout`, {
           method: 'POST',
           headers: {

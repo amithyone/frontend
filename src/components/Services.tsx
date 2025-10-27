@@ -55,7 +55,7 @@ const Services: React.FC = () => {
     {
       id: 'virtual-verify',
       name: 'Virtual Verify Number',
-      description: 'Get virtual numbers for SMS verification from 200+ services worldwide',
+      description: 'WhatsApp & Telegram prioritized • 200+ services • Auto best provider',
       icon: Shield,
       color: 'bg-purple-500',
       textColor: 'text-purple-500',

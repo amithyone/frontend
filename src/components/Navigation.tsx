@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Shield, Smartphone, Settings, Search, Sun, Moon, LogOut, User, Menu, X } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useBranding } from '../contexts/BrandingContext';
 
 interface NavigationProps {
   currentPage: 'home' | 'services';
@@ -11,6 +12,7 @@ interface NavigationProps {
 const Navigation: React.FC<NavigationProps> = ({ currentPage, setCurrentPage }) => {
   const { isDark, toggleTheme } = useTheme();
   const { logout, user } = useAuth();
+  const { branding } = useBranding();
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -30,9 +32,14 @@ const Navigation: React.FC<NavigationProps> = ({ currentPage, setCurrentPage }) 
         <div className="flex justify-between items-center h-16">
           {/* Left side - Logo and Brand */}
           <div className="flex items-center space-x-2">
-            <Shield className={`h-8 w-8 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
-            <span className="text-xl font-bold">FaddedSMS v2</span>
-            <span className={`text-sm font-medium ${isDark ? 'text-green-400' : 'text-green-600'} hidden sm:inline`}>+ VTU</span>
+            {branding?.logo_url ? (
+              <img src={branding.logo_url} alt={branding.brand_name} className="h-8 w-auto max-w-[120px]" />
+            ) : (
+              <>
+                <img src="/logo.svg" alt={branding?.brand_name || 'FaddedSMS'} className="h-8 w-8" />
+                <span className="text-sm font-semibold whitespace-nowrap">{branding?.brand_name || 'FaddedSMS'} v2</span>
+              </>
+            )}
           </div>
 
           {/* Center - Navigation Tabs (Hidden on mobile) */}

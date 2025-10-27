@@ -20,7 +20,8 @@ const QuickActions: React.FC = () => {
   const quickActions = [
     { 
       id: 'virtual', 
-      name: 'Virtual Number', 
+      name: 'Virtual Number',
+      description: 'WhatsApp First', 
       icon: Shield,
       onClick: () => setShowVirtualModal(true)
     },

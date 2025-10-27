@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { API_VTU_URL } from '../services/api';
+// import { API_VTU_URL } from '../services/api';
 import { X, DollarSign, CheckCircle, AlertCircle } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -11,7 +11,7 @@ interface BettingModalProps {
 }
 
 const fetchProviders = async () => {
-      const resp = await fetch(`${API_VTU_URL}/betting/providers`);
+      const resp = await fetch(`https://api.fadsms.com/api/betting/providers`);
   const ct = resp.headers.get('content-type') || '';
   if (!ct.includes('application/json')) throw new Error('Unexpected response');
   const data = await resp.json();
@@ -85,7 +85,7 @@ const BettingModal: React.FC<BettingModalProps> = ({ isOpen, onClose }) => {
       await vtuApiService.verifyCustomer(serviceId, customerId);
       // backend wallet check + provider call
       const token = localStorage.getItem('auth_token') || localStorage.getItem('authToken') || '';
-              const resp = await fetch(`${API_VTU_URL}/betting/purchase`, {
+              const resp = await fetch(`https://api.fadsms.com/api/betting/purchase`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

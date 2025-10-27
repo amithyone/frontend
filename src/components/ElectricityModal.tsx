@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { API_VTU_URL } from '../services/api';
+// import { API_VTU_URL } from '../services/api';
 import { X, Zap, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -40,7 +40,7 @@ const ElectricityModal: React.FC<ElectricityModalProps> = ({ isOpen, onClose }) 
     if (!isOpen) return;
     const load = async () => {
       try {
-        const resp = await fetch(`${API_VTU_URL}/electricity/providers`);
+        const resp = await fetch(`https://api.fadsms.com/api/electricity/providers`);
         const ct = resp.headers.get('content-type') || '';
         if (!ct.includes('application/json')) throw new Error('Unexpected response');
         const data = await resp.json();
@@ -88,7 +88,7 @@ const ElectricityModal: React.FC<ElectricityModalProps> = ({ isOpen, onClose }) 
     setVerifiedName(null);
     try {
       const token = localStorage.getItem('auth_token') || localStorage.getItem('authToken') || '';
-      const resp = await fetch(`${API_VTU_URL}/electricity/verify`, {
+      const resp = await fetch(`https://api.fadsms.com/api/electricity/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ service_id: serviceId, customer_id: customerId, variation_id: meterType }),
@@ -120,167 +120,112 @@ const ElectricityModal: React.FC<ElectricityModalProps> = ({ isOpen, onClose }) 
     }
     setIsLoading(true);
     
-    let transactionId = null;
-    
     try {
       const token = localStorage.getItem('auth_token') || localStorage.getItem('authToken') || '';
       
-      // Step 1: Create transaction record with "processing" status
-      const transactionResp = await fetch(`${API_VTU_URL}/transactions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({
-          type: 'debit',
-          amount: amt,
-          description: `Electricity bill payment - ${providers.find(p => p.id === serviceId)?.name || 'Unknown Provider'}`,
-          reference: `ELEC${Date.now()}`,
-          status: 'processing',
-          metadata: {
-            service_id: serviceId,
-            customer_id: customerId,
-            variation_id: meterType,
-            customer_name: verifiedName
-          }
-        }),
-      });
+      const requestBody = { 
+        service_id: serviceId, 
+        customer_id: customerId, 
+        variation_id: meterType, 
+        amount: amt 
+      };
       
-      const transactionData = await transactionResp.json();
-      if (transactionData.success) {
-        transactionId = transactionData.data.id;
+      console.log('=== ELECTRICITY PURCHASE REQUEST ===');
+      console.log('URL:', 'https://api.fadsms.com/api/electricity/purchase');
+      console.log('Request body:', requestBody);
+      console.log('Has token:', !!token);
+      console.log('Token (first 20 chars):', token?.substring(0, 20));
+      
+      // Backend handles transaction creation, balance deduction, and SMS sending
+      let resp;
+      try {
+        resp = await fetch(`https://api.fadsms.com/api/electricity/purchase`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify(requestBody),
+        });
+        console.log('Fetch completed successfully');
+      } catch (fetchErr: any) {
+        console.error('=== FETCH ERROR ===');
+        console.error('Error type:', fetchErr.name);
+        console.error('Error message:', fetchErr.message);
+        console.error('Full error:', fetchErr);
+        throw new Error(`Network error: ${fetchErr.message}. Check your internet connection.`);
       }
       
-      // Step 2: Attempt electricity purchase
-      const resp = await fetch(`${API_VTU_URL}/electricity/purchase`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ service_id: serviceId, customer_id: customerId, variation_id: meterType, amount: amt }),
+      console.log('Electricity purchase response status:', resp.status);
+      console.log('Response headers:', {
+        contentType: resp.headers.get('content-type'),
+        status: resp.status,
+        statusText: resp.statusText
       });
       
       const ct = resp.headers.get('content-type') || '';
-      if (!ct.includes('application/json')) throw new Error('Unexpected response type');
-      const data = await resp.json();
+      if (!ct.includes('application/json')) {
+        console.error('Non-JSON response received:', ct);
+        const textResponse = await resp.text();
+        console.error('Full response content:', textResponse);
+        console.error('Response URL:', resp.url);
+        throw new Error(`Server returned HTML instead of JSON. Status: ${resp.status}. Check console for details.`);
+      }
       
-      if (data.success) {
-        // Step 3: Update transaction status to "completed"
-        if (transactionId) {
-          await fetch(`${API_VTU_URL}/transactions/${transactionId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({
-              status: 'completed',
-              metadata: {
-                token: data.data?.token,
-                units: data.data?.units,
-                reference: data.data?.reference
-              }
-            }),
-          });
-        }
-        
-        // Step 4: Store electricity token in inbox
-        await fetch(`${API_VTU_URL}/inbox/messages`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({
-            type: 'electricity_token',
-            title: '🔆 Fadded VIP Electricity Token',
-            message: `Your electricity token has been generated successfully. Token: ${data.data?.token || 'N/A'}, Units: ${data.data?.units || 'N/A'}`,
-            reference: data.data?.reference || `ELEC${Date.now()}`,
-            metadata: {
-              token: data.data?.token,
-              units: data.data?.units,
-              customer_name: verifiedName,
-              amount: amt,
-              provider: providers.find(p => p.id === serviceId)?.name || 'Unknown'
-            }
-          }),
+      const data = await resp.json();
+      console.log('Electricity purchase data:', data);
+      
+      if (!resp.ok) {
+        console.error('Electricity purchase failed:', data);
+        throw new Error(data.message || `HTTP ${resp.status}: ${resp.statusText}`);
+      }
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Electricity purchase failed');
+      }
+      
+      // Backend has already handled everything, just display the result
+      addCustomerToHistory(customerId);
+      
+      // Check if transaction is processing (timeout scenario)
+      const isProcessing = data.processing || data.data?.status === 'processing';
+      
+      // Store purchase result for receipt display
+      setPurchaseResult({
+        reference: data.data?.reference || `ELEC${Date.now()}`,
+        customerId: customerId,
+        customerName: verifiedName,
+        amount: amt,
+        provider: providers.find(p => p.id === serviceId)?.name || 'Unknown',
+        meterType: meterType,
+        token: data.data?.token || (isProcessing ? 'Processing...' : 'N/A'),
+        units: data.data?.units || (isProcessing ? 'Processing...' : 'N/A'),
+        date: new Date().toLocaleString(),
+        status: isProcessing ? 'processing' : 'completed',
+        ...data.data
+      });
+      
+      if (isProcessing) {
+        setMsg({ 
+          type: 'success',  // Still success color since request was accepted
+          text: 'Request received! Due to provider timeout, your electricity token is being processed. Check your inbox in 5-10 minutes for the token and receipt.' 
         });
-        
-        // Save the meter/account number after successful purchase
-        addCustomerToHistory(customerId);
-        
-        // Store purchase result for receipt display
-        setPurchaseResult({
-          reference: data.data?.reference || `ELEC${Date.now()}`,
-          customerId: customerId,
-          customerName: verifiedName,
-          amount: amt,
-          provider: providers.find(p => p.id === serviceId)?.name || 'Unknown',
-          meterType: meterType,
-          token: data.data?.token || data.data?.receipt?.token || 'N/A',
-          units: data.data?.units || data.data?.receipt?.units || 'N/A',
-          date: new Date().toLocaleString(),
-          ...data.data
-        });
-        
+        setShowReceipt(true);  // Show receipt with processing status
+      } else {
         setMsg({ 
           type: 'success', 
           text: 'Electricity purchased successfully! Token sent to your SMS and inbox. Click to view receipt.' 
         });
         setShowReceipt(true);
-        
-        // Clear form
-        setCustomerId('');
-        setAmount('');
-        setVerifiedName(null);
-        
-      } else {
-        // Step 3: Update transaction status to "failed" and refund user
-        if (transactionId) {
-          await fetch(`${API_VTU_URL}/transactions/${transactionId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({
-              status: 'failed',
-              metadata: {
-                error_message: data.message,
-                refunded: true
-              }
-            }),
-          });
-        }
-        
-        // Create refund notification in inbox
-        await fetch(`${API_VTU_URL}/inbox/messages`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({
-            type: 'general',
-            title: '💳 Refund Notification',
-            message: `Your electricity purchase failed and ₦${amt.toLocaleString()} has been refunded to your wallet. Reference: ${data.data?.reference || 'N/A'}`,
-            reference: data.data?.reference || `REFUND${Date.now()}`,
-            metadata: {
-              amount: amt,
-              original_reference: data.data?.reference,
-              refund_reason: data.message
-            }
-          }),
-        });
-        
-        throw new Error(data.message || 'Electricity purchase failed');
       }
+      
+      // Clear form
+      setCustomerId('');
+      setAmount('');
+      setVerifiedName(null);
       
     } catch (e: any) {
-      // Update transaction status to "failed" if we have a transaction ID
-      if (transactionId) {
-        try {
-          const token = localStorage.getItem('auth_token') || localStorage.getItem('authToken') || '';
-          await fetch(`${API_VTU_URL}/transactions/${transactionId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({
-              status: 'failed',
-              metadata: {
-                error_message: e.message,
-                refunded: true
-              }
-            }),
-          });
-        } catch (updateError) {
-          console.error('Failed to update transaction status:', updateError);
-        }
-      }
-      
+      console.error('=== ELECTRICITY PURCHASE ERROR ===');
+      console.error('Error:', e);
+      console.error('Error message:', e?.message);
+      console.error('Error stack:', e?.stack);
       setMsg({ type: 'error', text: e?.message || 'Electricity purchase failed' });
     } finally {
       setIsLoading(false);
@@ -389,11 +334,24 @@ const ElectricityModal: React.FC<ElectricityModalProps> = ({ isOpen, onClose }) 
             
             <div className="p-6 space-y-4">
               <div className="text-center mb-6">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 dark:bg-green-900 mb-4">
-                  <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Payment Successful!</h3>
-                <p className="text-2xl font-bold text-green-600">₦{purchaseResult.amount.toLocaleString()}</p>
+                {purchaseResult.status === 'processing' ? (
+                  <>
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-orange-100 dark:bg-orange-900 mb-4">
+                      <RefreshCw className="h-8 w-8 text-orange-600 dark:text-orange-400 animate-spin" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">Request Processing</h3>
+                    <p className="text-2xl font-bold text-orange-600">₦{purchaseResult.amount.toLocaleString()}</p>
+                    <p className="text-sm text-gray-500 mt-2">Token will be delivered to your inbox shortly</p>
+                  </>
+                ) : (
+                  <>
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 dark:bg-green-900 mb-4">
+                      <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">Payment Successful!</h3>
+                    <p className="text-2xl font-bold text-green-600">₦{purchaseResult.amount.toLocaleString()}</p>
+                  </>
+                )}
               </div>
               
               <div className="space-y-3">
@@ -426,26 +384,40 @@ const ElectricityModal: React.FC<ElectricityModalProps> = ({ isOpen, onClose }) 
                 
                 {purchaseResult.token && purchaseResult.token !== 'N/A' && (
                   <div className="border-t pt-3 mt-3">
-                    <div className="bg-yellow-50 dark:bg-yellow-900 p-3 rounded-lg">
-                      <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2 flex items-center">
-                        🔆 Fadded VIP Token Details
-                      </h4>
-                      <div className="space-y-1">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600 dark:text-gray-300">Token:</span>
-                          <span className="font-mono text-lg font-bold text-yellow-700 dark:text-yellow-300">{purchaseResult.token}</span>
+                    {purchaseResult.status === 'processing' ? (
+                      <div className="bg-orange-50 dark:bg-orange-900 p-3 rounded-lg">
+                        <h4 className="font-semibold text-orange-800 dark:text-orange-200 mb-2 flex items-center">
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Token Processing
+                        </h4>
+                        <p className="text-sm text-orange-700 dark:text-orange-300">
+                          Your electricity token is being generated by the provider. This usually takes 5-10 minutes due to provider timeout.
+                        </p>
+                        <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900 rounded text-sm text-blue-800 dark:text-blue-200">
+                          💡 Token will be sent to your inbox and SMS once processing completes. Reference: {purchaseResult.reference}
                         </div>
-                        {purchaseResult.units && purchaseResult.units !== 'N/A' && (
+                      </div>
+                    ) : (
+                      <div className="bg-yellow-50 dark:bg-yellow-900 p-3 rounded-lg">
+                        <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2 flex items-center">
+                          🔆 Fadded VIP Token Details
+                        </h4>
+                        <div className="space-y-1">
                           <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-300">Units:</span>
-                            <span className="font-medium">{purchaseResult.units} kWh</span>
+                            <span className="text-gray-600 dark:text-gray-300">Token:</span>
+                            <span className="font-mono text-lg font-bold text-yellow-700 dark:text-yellow-300">{purchaseResult.token}</span>
                           </div>
-                        )}
+                          {purchaseResult.units && purchaseResult.units !== 'N/A' && purchaseResult.units !== 'Processing...' && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-600 dark:text-gray-300">Units:</span>
+                              <span className="font-medium">{purchaseResult.units} kWh</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900 rounded text-sm text-blue-800 dark:text-blue-200">
+                          💡 Token also sent to your SMS and saved in inbox for future reference
+                        </div>
                       </div>
-                      <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900 rounded text-sm text-blue-800 dark:text-blue-200">
-                        💡 Token also sent to your SMS and saved in inbox for future reference
-                      </div>
-                    </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -453,14 +425,22 @@ const ElectricityModal: React.FC<ElectricityModalProps> = ({ isOpen, onClose }) 
               <div className="flex space-x-3 pt-4">
                 <button 
                   onClick={() => {
-                    // Copy token to clipboard if available
-                    if (purchaseResult.token && purchaseResult.token !== 'N/A') {
+                    // Copy token to clipboard if available and not processing
+                    if (purchaseResult.token && purchaseResult.token !== 'N/A' && purchaseResult.status !== 'processing') {
                       navigator.clipboard.writeText(purchaseResult.token);
+                      setMsg({ type: 'success', text: 'Token copied to clipboard!' });
+                    } else if (purchaseResult.status === 'processing') {
+                      setMsg({ type: 'error', text: 'Token is still processing. Please check your inbox in a few minutes.' });
                     }
                   }}
-                  className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                  disabled={purchaseResult.status === 'processing'}
+                  className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+                    purchaseResult.status === 'processing' 
+                      ? 'bg-gray-400 cursor-not-allowed text-white' 
+                      : 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                  }`}
                 >
-                  Copy Token
+                  {purchaseResult.status === 'processing' ? 'Processing...' : 'Copy Token'}
                 </button>
                 <button 
                   onClick={() => setShowReceipt(false)} 

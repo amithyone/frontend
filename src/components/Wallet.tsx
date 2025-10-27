@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useBranding } from '../contexts/BrandingContext';
 import { apiService } from '../services/api';
+import SellCrypto from './SellCrypto';
 import { 
   Wallet as WalletIcon, 
   Plus, 
@@ -30,6 +32,23 @@ interface Transaction {
   reference?: string;
 }
 
+interface DepositItem {
+  id: number;
+  amount: number;
+  reference: string;
+  status: string;
+  created_at: string;
+  description?: string;
+  payment_method?: string;
+  bank_name?: string;
+  account_number?: string;
+  transaction_type?: string;
+  fees?: number;
+  net_amount?: number;
+  completed_at?: string;
+  failure_reason?: string;
+}
+
 interface TopUpMethod {
   id: string;
   name: string;
@@ -41,7 +60,7 @@ interface TopUpMethod {
 const Wallet: React.FC = () => {
   const { isDark } = useTheme();
   const { user, updateWalletBalance } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'topup' | 'history'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'topup' | 'sellcrypto' | 'history'>('overview');
   const [showTopUpModal, setShowTopUpModal] = useState(false);
   const [selectedAmount, setSelectedAmount] = useState<string>('');
   const [generatedAccount, setGeneratedAccount] = useState<string>('');
@@ -63,6 +82,8 @@ const Wallet: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState<boolean>(false);
+  const [deposits, setDeposits] = useState<DepositItem[]>([]);
+  const [isLoadingDeposits, setIsLoadingDeposits] = useState<boolean>(false);
 
   const quickAmounts = [1000, 2000, 5000, 10000, 20000, 50000];
 
@@ -85,7 +106,7 @@ const Wallet: React.FC = () => {
     setIsGenerating(true);
     try {
       console.log('Calling PayVibe API with amount:', selectedAmount);
-      const response = await apiService.initiateTopUp({ amount: parseInt(selectedAmount), user_id: 1 });
+      const response = await apiService.initiateTopUp({ amount: parseInt(selectedAmount), user_id: user?.id || 1 });
       
       console.log('Full PayVibe response:', response);
       
@@ -124,9 +145,26 @@ const Wallet: React.FC = () => {
       if (response.status === 'success' && response.data) {
         setPaymentStatus(response.data.status || 'pending');
         if (response.data.status === 'completed') {
-          alert('Payment completed! Your wallet has been credited.');
-          // Refresh user data
-          fetchUserData();
+          // Update balance immediately if provided in response
+          if (response.data.balance !== undefined) {
+            updateWalletBalance(response.data.balance);
+          }
+          
+          // Show success notification
+          alert(`Payment completed! ₦${response.data.amount?.toLocaleString()} has been credited to your wallet.`);
+          
+          // Refresh all data
+          await Promise.all([fetchUserData(), fetchTransactions(), fetchDeposits()]);
+          
+          // Clear payment details after successful completion
+          setTimeout(() => {
+            setAccountNumber('');
+            setAccountName('');
+            setBankName('');
+            setPaymentReference('');
+            setPaymentStatus('');
+            setAmount('');
+          }, 2000);
         }
       } else {
         alert(response.message || 'Failed to check payment status');
@@ -200,13 +238,34 @@ const Wallet: React.FC = () => {
         setTransactions(transformedTransactions);
 
         // Calculate statistics
-        const credits = transformedTransactions.filter(tx => tx.type === 'credit' && tx.status === 'completed');
+        // Only count actual wallet deposits/top-ups (exclude refunds, bonuses, etc.)
+        const deposits = transformedTransactions.filter(tx => {
+          if (tx.type !== 'credit' || tx.status !== 'completed') return false;
+          
+          const desc = tx.description.toLowerCase();
+          
+          // Exclude refunds
+          if (desc.includes('refund')) return false;
+          if (desc.includes('expired')) return false;
+          
+          // Include deposits and admin top-ups
+          return (
+            desc.includes('deposit') || 
+            desc.includes('top up') ||
+            desc.includes('topup') ||
+            desc.includes('top-up') ||
+            desc.includes('wallet funded') ||
+            desc.includes('payment') ||
+            desc.includes('credited') ||
+            desc.includes('admin balance')
+          );
+        });
         const debits = transformedTransactions.filter(tx => tx.type === 'debit' && tx.status === 'completed');
         
-        const totalCredits = credits.reduce((sum, tx) => sum + tx.amount, 0);
+        const totalDeposits = deposits.reduce((sum, tx) => sum + tx.amount, 0);
         const totalDebits = debits.reduce((sum, tx) => sum + tx.amount, 0);
         
-        setTotalTopUps(totalCredits);
+        setTotalTopUps(totalDeposits);
         setTotalSpent(totalDebits);
       }
     } catch (error) {
@@ -216,16 +275,70 @@ const Wallet: React.FC = () => {
     }
   };
 
+  const fetchDeposits = async () => {
+    setIsLoadingDeposits(true);
+    try {
+      const response = await apiService.getRecentDeposits();
+      if ((response as any)?.success === true) {
+        const rows = (response as any).data as any[];
+        const mapped: DepositItem[] = rows.map((d: any) => ({
+          id: Number(d.id ?? d.transaction_id ?? Date.now()),
+          amount: Number(d.amount ?? 0),
+          reference: String(d.reference ?? ''),
+          status: String(d.status ?? 'pending'),
+          created_at: String(d.created_at ?? new Date().toISOString()),
+        }));
+        setDeposits(mapped);
+      } else {
+        setDeposits([]);
+      }
+    } catch (e) {
+      setDeposits([]);
+    } finally {
+      setIsLoadingDeposits(false);
+    }
+  };
+
   // Load data on component mount
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
-      await Promise.all([fetchUserData(), fetchTransactions()]);
+      await Promise.all([fetchUserData(), fetchTransactions(), fetchDeposits()]);
       setIsLoading(false);
     };
 
     loadData();
   }, []);
+
+  // Refresh deposits whenever tab changes back to overview or history
+  useEffect(() => {
+    if (activeTab === 'overview' || activeTab === 'history') {
+      fetchDeposits();
+    }
+  }, [activeTab]);
+
+  // Auto-poll payment status when there's a pending payment
+  useEffect(() => {
+    if (!paymentReference || paymentStatus === 'completed') {
+      return; // No polling needed
+    }
+
+    // Initial check after 5 seconds
+    const initialTimer = setTimeout(() => {
+      checkPaymentStatus();
+    }, 5000);
+
+    // Then check every 10 seconds
+    const pollInterval = setInterval(() => {
+      checkPaymentStatus();
+    }, 10000);
+
+    // Cleanup on unmount or when payment is completed
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(pollInterval);
+    };
+  }, [paymentReference, paymentStatus]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -265,9 +378,9 @@ const Wallet: React.FC = () => {
   };
 
   return (
-    <div className={`p-4 space-y-6 transition-colors duration-200 ${
+    <div className={`p-4 pb-24 space-y-6 transition-colors duration-200 ${
       isDark ? 'bg-gray-900' : 'bg-gray-50'
-    }`}>
+    }`} style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom))' }}>
       {/* Header */}
       <div className="text-center">
         <h1 className={`text-2xl font-bold mb-2 ${
@@ -368,16 +481,84 @@ const Wallet: React.FC = () => {
         </div>
       </div>
 
+      {/* Recent Deposits */}
+      <div className={`rounded-2xl p-4 shadow-sm border transition-colors duration-200 ${
+        isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'
+      }`}>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>Recent Deposits</h3>
+          <button
+            onClick={fetchDeposits}
+            className={`text-xs px-3 py-1 rounded border ${isDark ? 'border-gray-600 text-gray-200 hover:bg-gray-700' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
+          >
+            Refresh
+          </button>
+        </div>
+        {isLoadingDeposits ? (
+          <div className="space-y-2">
+            {[1,2,3].map(i => (
+              <div key={i} className={`p-3 rounded-xl ${isDark ? 'bg-gray-900/40' : 'bg-gray-50'}`}>
+                <div className={`h-4 w-24 ${isDark ? 'bg-gray-700' : 'bg-gray-200'} rounded animate-pulse mb-2`} />
+                <div className={`h-3 w-40 ${isDark ? 'bg-gray-700' : 'bg-gray-200'} rounded animate-pulse`} />
+              </div>
+            ))}
+          </div>
+        ) : deposits.length === 0 ? (
+          <div className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>No deposits yet</div>
+        ) : (
+          <div className="space-y-2">
+            {deposits.slice(0, 3).map((d) => (
+              <div key={d.id} className={`p-3 rounded-xl ${isDark ? 'bg-gray-900/40' : 'bg-gray-50'}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>₦{d.amount.toLocaleString()}</div>
+                  <div className={`text-xs px-2 py-1 rounded-full ${
+                    d.status === 'completed' ? 'bg-green-100 text-green-800' : 
+                    d.status === 'failed' ? 'bg-red-100 text-red-800' : 
+                    'bg-yellow-100 text-yellow-800'
+                  }`}>{d.status}</div>
+                </div>
+                <div className={`text-xs font-mono ${isDark ? 'text-gray-400' : 'text-gray-500'} mb-1`}>
+                  Ref: {d.reference}
+                </div>
+                {d.description && (
+                  <div className={`text-xs ${isDark ? 'text-gray-300' : 'text-gray-600'} mb-1`}>
+                    {d.description}
+                  </div>
+                )}
+                {d.payment_method && (
+                  <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                    {d.payment_method}
+                    {d.bank_name && ` • ${d.bank_name}`}
+                  </div>
+                )}
+                <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
+                  {new Date(d.created_at).toLocaleString()}
+                  {d.completed_at && d.status === 'completed' && (
+                    <span className="ml-2">• Completed: {new Date(d.completed_at).toLocaleString()}</span>
+                  )}
+                </div>
+                {d.failure_reason && d.status === 'failed' && (
+                  <div className={`text-xs text-red-600 mt-1`}>
+                    Reason: {d.failure_reason}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Tabs */}
       <div className={`rounded-xl p-1 shadow-sm border transition-colors duration-200 ${
         isDark 
           ? 'bg-gray-800 border-gray-700' 
           : 'bg-white border-gray-100'
       }`}>
-        <div className="grid grid-cols-3 gap-1">
+        <div className="grid grid-cols-4 gap-1">
           {[
             { id: 'overview', name: 'Overview', icon: WalletIcon },
             { id: 'topup', name: 'Top Up', icon: Plus },
+            { id: 'sellcrypto', name: 'Sell Crypto', icon: DollarSign },
             { id: 'history', name: 'History', icon: History }
           ].map((tab) => {
             const Icon = tab.icon;
@@ -385,7 +566,7 @@ const Wallet: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center justify-center space-x-2 py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
+                className={`flex items-center justify-center space-x-1 py-2 px-2 rounded-lg font-medium transition-all duration-200 ${
                   activeTab === tab.id
                     ? 'bg-orange-500 text-white shadow-md'
                     : isDark 
@@ -394,7 +575,7 @@ const Wallet: React.FC = () => {
                 }`}
               >
                 <Icon className="h-4 w-4" />
-                <span className="text-sm">{tab.name}</span>
+                <span className="text-xs">{tab.name}</span>
               </button>
             );
           })}
@@ -815,8 +996,75 @@ const Wallet: React.FC = () => {
               ))}
             </div>
           )}
+
+          {/* Deposits Table */}
+          <div className="mt-6">
+            <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>Deposits</h3>
+            {deposits.length === 0 ? (
+              <div className={`text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>No deposits found</div>
+            ) : (
+              <div className="mt-3 overflow-x-auto">
+                <table className={`w-full text-sm ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                  <thead>
+                    <tr className={`${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                      <th className="text-left p-2">Date</th>
+                      <th className="text-left p-2">Reference</th>
+                      <th className="text-left p-2">Description</th>
+                      <th className="text-left p-2">Method</th>
+                      <th className="text-right p-2">Amount</th>
+                      <th className="text-right p-2">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {deposits.map((d) => (
+                      <tr key={d.id} className={`${isDark ? 'border-gray-700' : 'border-gray-200'} border-t`}>
+                        <td className="p-2">
+                          <div>{new Date(d.created_at).toLocaleString()}</div>
+                          {d.completed_at && d.status === 'completed' && (
+                            <div className="text-xs text-green-600">Completed: {new Date(d.completed_at).toLocaleString()}</div>
+                          )}
+                        </td>
+                        <td className="p-2 font-mono text-xs">{d.reference}</td>
+                        <td className="p-2">
+                          <div className="text-xs">{d.description || 'Wallet Deposit'}</div>
+                          {d.failure_reason && d.status === 'failed' && (
+                            <div className="text-xs text-red-600 mt-1">Reason: {d.failure_reason}</div>
+                          )}
+                        </td>
+                        <td className="p-2">
+                          <div className="text-xs">{d.payment_method || 'Bank Transfer'}</div>
+                          {d.bank_name && (
+                            <div className="text-xs text-gray-500">{d.bank_name}</div>
+                          )}
+                        </td>
+                        <td className="p-2 text-right">
+                          <div>₦{d.amount.toLocaleString()}</div>
+                          {d.fees && d.fees > 0 && (
+                            <div className="text-xs text-gray-500">Fee: ₦{d.fees.toLocaleString()}</div>
+                          )}
+                          {d.net_amount && d.net_amount !== d.amount && (
+                            <div className="text-xs text-green-600">Net: ₦{d.net_amount.toLocaleString()}</div>
+                          )}
+                        </td>
+                        <td className="p-2 text-right">
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            d.status === 'completed' ? 'bg-green-100 text-green-800' : 
+                            d.status === 'failed' ? 'bg-red-100 text-red-800' : 
+                            'bg-yellow-100 text-yellow-800'
+                          }`}>{d.status}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
+
+      {/* Sell Crypto Tab */}
+      {activeTab === 'sellcrypto' && <SellCrypto />}
     </div>
   );
 };

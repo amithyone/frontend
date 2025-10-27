@@ -1,0 +1,502 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { imageConfig, getImageUrl, getServiceLogo } from '../config/images';
+
+const LandingPageWithImages: React.FC = () => {
+  const [isDark, setIsDark] = useState(false);
+  const navigate = useNavigate();
+
+  return (
+    <div className="bg-white w-full min-h-screen">
+      {/* Header */}
+      <header className="flex items-center justify-between px-6 lg:px-20 py-6 bg-transparent absolute top-0 left-0 right-0 z-10">
+        <div className="flex items-center">
+          {/* Replaceable logo */}
+          <img 
+            src={getImageUrl(imageConfig.logo.icon)} 
+            alt="FaddedSMS Logo" 
+            className="h-8 w-auto"
+          />
+        </div>
+        
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate('/register')}
+            className="px-6 py-2 rounded-full border border-white/40 bg-transparent hover:bg-white/10 text-white font-medium transition-all duration-200"
+          >
+            Sign Up
+          </button>
+          <button 
+            onClick={() => navigate('/login')}
+            className="px-6 py-2 rounded-full bg-orange-500 hover:bg-orange-600 text-white font-medium transition-all duration-200"
+          >
+            Sign in
+          </button>
+        </div>
+      </header>
+
+      {/* Hero Section */}
+      <section className="relative text-white overflow-hidden pt-20 min-h-screen flex items-center">
+        {/* Hero Background */}
+        <div className="absolute inset-0 w-full h-full z-0">
+          <img 
+            src={getImageUrl(imageConfig.hero.background)} 
+            alt="Hero background with blue sky and clouds" 
+            className="w-full h-full object-cover"
+          />
+          {/* Semi-transparent overlay for text readability */}
+          <div className="absolute inset-0 bg-black/20"></div>
+        </div>
+        
+        {/* Content Container */}
+        <div className="container mx-auto px-6 lg:px-20 py-20 lg:py-32 relative z-10">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div className="space-y-8">
+              <h1 className="text-4xl lg:text-6xl font-bold leading-tight">
+                Not comfortable sharing your phone number? — Use Ours!
+              </h1>
+              <p className="text-xl lg:text-2xl text-blue-100 leading-relaxed">
+                Access 900+ services without revealing your personal phone number. Get SMS and OTP messages from any service.
+              </p>
+              <button 
+                onClick={() => navigate('/register')}
+                className="px-8 py-4 bg-green-500 hover:bg-green-600 rounded-full text-white font-semibold text-lg"
+              >
+                Get Started For Free
+              </button>
+            </div>
+            
+            {/* Replaceable phone mockup */}
+            <div className="relative flex justify-center lg:justify-end">
+              <div className="relative">
+                {/* Replaceable hand holding phone illustration */}
+                <div className="w-80 h-96 relative">
+                  <img 
+                    src={getImageUrl(imageConfig.hero.handHoldingPhone)} 
+                    alt="Hand holding phone" 
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Fallback to CSS illustration if image fails
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      target.nextElementSibling?.classList.remove('hidden');
+                    }}
+                  />
+                  {/* Fallback CSS illustration */}
+                  <div className="hidden w-full h-full">
+                    {/* Hand */}
+                    <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-32 h-40 bg-amber-100 rounded-t-full"></div>
+                    
+                    {/* Phone */}
+                    <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-48 h-80 bg-gray-900 rounded-3xl p-1 shadow-2xl">
+                      <div className="w-full h-full bg-white rounded-3xl relative overflow-hidden">
+                        {/* Status bar */}
+                        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 w-20 h-1 bg-gray-300 rounded-full"></div>
+                        
+                        {/* Screen content */}
+                        <div className="p-6 pt-12 space-y-4">
+                          <div className="bg-orange-500 text-white p-3 rounded-2xl rounded-bl-md max-w-[80%] ml-auto">
+                            <p className="text-sm font-medium">Verification Code</p>
+                            <p className="text-xs opacity-90">Your code: 123456</p>
+                          </div>
+                          <div className="bg-gray-100 text-gray-800 p-3 rounded-2xl rounded-br-md max-w-[70%]">
+                            <p className="text-sm">✓ Received</p>
+                          </div>
+                          <div className="bg-blue-500 text-white p-3 rounded-2xl rounded-bl-md max-w-[80%] ml-auto">
+                            <p className="text-sm font-medium">PayPal Security</p>
+                            <p className="text-xs opacity-90">Code: 789012</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Replaceable floating notification badges */}
+                <div className="absolute top-10 -right-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium shadow-lg">
+                  <img 
+                    src={getImageUrl(imageConfig.decorations.notificationBadge1)} 
+                    alt="New SMS notification" 
+                    className="w-full h-full object-cover rounded-full"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      target.nextElementSibling?.classList.remove('hidden');
+                    }}
+                  />
+                  <span className="hidden">New SMS</span>
+                </div>
+                <div className="absolute bottom-32 -left-8 bg-orange-500 text-white px-3 py-1 rounded-full text-sm font-medium shadow-lg">
+                  <img 
+                    src={getImageUrl(imageConfig.decorations.notificationBadge2)} 
+                    alt="OTP Ready notification" 
+                    className="w-full h-full object-cover rounded-full"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      target.nextElementSibling?.classList.remove('hidden');
+                    }}
+                  />
+                  <span className="hidden">OTP Ready</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Services Section */}
+      <section className="py-20 bg-white">
+        <div className="container mx-auto px-6 lg:px-20">
+          <div className="text-center mb-16">
+            <h2 className="text-2xl lg:text-3xl font-light text-gray-500 mb-8">
+              RECEIVE SMS & OTP FROM 900+ SERVICES
+            </h2>
+            
+            {/* Service logos row */}
+            <div className="flex flex-wrap justify-center items-center gap-8 lg:gap-12 mb-8">
+              {/* Google */}
+              <div className="flex items-center">
+                <span className="text-2xl lg:text-3xl font-normal text-gray-600">Google</span>
+              </div>
+              
+              {/* WhatsApp */}
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488"/>
+                  </svg>
+                </div>
+                <span className="text-2xl lg:text-3xl font-normal text-gray-600">WhatsApp</span>
+              </div>
+              
+              {/* Hinge */}
+              <div className="flex items-center">
+                <span className="text-2xl lg:text-3xl font-bold text-gray-600">Hinge</span>
+              </div>
+              
+              {/* Tinder */}
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  </svg>
+                </div>
+                <span className="text-2xl lg:text-3xl font-normal text-gray-600">tinder</span>
+              </div>
+              
+              {/* Uber */}
+              <div className="flex items-center">
+                <span className="text-2xl lg:text-3xl font-normal text-gray-600">Uber</span>
+              </div>
+            </div>
+            
+            <h3 className="text-xl lg:text-2xl font-light text-gray-500">
+              WHAT YOU CAN DO WITH US
+            </h3>
+          </div>
+        </div>
+      </section>
+
+      {/* Feature Cards Section */}
+      <section className="py-20 bg-white">
+        <div className="container mx-auto px-6 lg:px-20">
+          <div className="text-center mb-16">
+            <h2 className="text-sm font-light text-gray-500 mb-4 uppercase tracking-wide">
+              WHAT YOU CAN DO WITH US
+            </h2>
+            <h3 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
+              Global virtual numbers, instant data & airtime top-ups — all in one.
+            </h3>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Whether it's verifying online, topping up data and airtime, we keep everything seamless, secure, and hassle-free.
+            </p>
+          </div>
+          
+          <div className="grid md:grid-cols-2 gap-8 max-w-6xl mx-auto">
+            {/* Get Virtual Number Card */}
+            <div className="bg-green-50 rounded-3xl p-8 relative overflow-hidden">
+              <div className="relative z-10">
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">Get Virtual Number</h3>
+                <p className="text-gray-600 mb-6">
+                  Receive OTP easily and verify online KYC with our virtual international numbers.
+                </p>
+                <button className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-full font-medium transition-colors">
+                  Get a Number →
+                </button>
+              </div>
+              {/* SIM Card - Bottom right as background */}
+              <div className="absolute bottom-0 right-0 w-32 h-32 opacity-20">
+                <img 
+                  src={getImageUrl(imageConfig.featureCards.virtualNumber)} 
+                  alt="SIM Card" 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Buy Data Card */}
+            <div className="bg-green-50 rounded-3xl p-8 relative overflow-hidden">
+              <div className="relative z-10">
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">Buy Data, Airtime and Bill Payment</h3>
+                <p className="text-gray-600 mb-6">
+                  Stay connected online, get your favorite network operator data at an affordable price
+                </p>
+                <button className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-full font-medium transition-colors">
+                  Get Data Now →
+                </button>
+              </div>
+              {/* Wi-Fi Symbol - Bottom right as background */}
+              <div className="absolute bottom-0 right-0 w-32 h-32 opacity-20">
+                <img 
+                  src={getImageUrl(imageConfig.featureCards.data)} 
+                  alt="Wi-Fi Symbol" 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Real Numbers Section */}
+      <section className="py-20 bg-white">
+        <div className="container mx-auto px-6 lg:px-20">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div className="space-y-8">
+              <h2 className="text-3xl lg:text-4xl font-bold text-gray-900">
+                <span className="text-gray-500">Real Numbers for</span><br />
+                <span className="text-black">Instant OTP and SMS verification, stay private and secured.</span>
+              </h2>
+              
+              <div className="space-y-6">
+                {/* Verify Feature */}
+                <div className="flex items-start space-x-4">
+                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2">Verify</h3>
+                    <p className="text-gray-600 mb-2">
+                      Bypass any text or voice verification with real non-voip US based phone numbers.
+                    </p>
+                    <a href="#" className="text-blue-600 underline text-sm">Learn More</a>
+                  </div>
+                </div>
+
+                {/* Secured Feature */}
+                <div className="flex items-start space-x-4">
+                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2">Secured</h3>
+                    <p className="text-gray-600 mb-2">
+                      Give out our numbers instead of yours. Strong encryption and cryptocurrency payments.
+                    </p>
+                    <a href="#" className="text-blue-600 underline text-sm">Learn More</a>
+                  </div>
+                </div>
+
+                {/* Automate Feature */}
+                <div className="flex items-start space-x-4">
+                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2">Automate</h3>
+                    <p className="text-gray-600 mb-2">
+                      Build apps using our powerful API. Bulk discount pricing available.
+                    </p>
+                    <a href="#" className="text-blue-600 underline text-sm">Learn More</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Lady with phone - Right side */}
+            <div className="flex justify-center lg:justify-end">
+              <img 
+                src={getImageUrl(imageConfig.realNumbers.ladyWithPhone)} 
+                alt="Lady with phone" 
+                className="w-80 h-96 object-cover rounded-2xl"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works Section */}
+      <section className="py-20 bg-white">
+        <div className="container mx-auto px-6 lg:px-20">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
+              How It Works
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Get started in just 3 simple steps
+            </p>
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-8">
+            {/* Step 1 - Replaceable step number */}
+            <div className="text-center">
+              <div className="w-20 h-20 bg-blue-500 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-6">
+                <img 
+                  src={getImageUrl(imageConfig.decorations.stepNumber1)} 
+                  alt="Step 1" 
+                  className="w-full h-full object-cover rounded-full"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.nextElementSibling?.classList.remove('hidden');
+                  }}
+                />
+                <span className="hidden">1</span>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">Choose Service</h3>
+              <p className="text-gray-600">
+                Select from 900+ supported services like WhatsApp, Instagram, or any platform you need.
+              </p>
+            </div>
+
+            {/* Step 2 - Replaceable step number */}
+            <div className="text-center">
+              <div className="w-20 h-20 bg-green-500 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-6">
+                <img 
+                  src={getImageUrl(imageConfig.decorations.stepNumber2)} 
+                  alt="Step 2" 
+                  className="w-full h-full object-cover rounded-full"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.nextElementSibling?.classList.remove('hidden');
+                  }}
+                />
+                <span className="hidden">2</span>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">Get Number</h3>
+              <p className="text-gray-600">
+                Receive a temporary phone number instantly. Use it for verification on your chosen service.
+              </p>
+            </div>
+
+            {/* Step 3 - Replaceable step number */}
+            <div className="text-center">
+              <div className="w-20 h-20 bg-orange-500 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-6">
+                <img 
+                  src={getImageUrl(imageConfig.decorations.stepNumber3)} 
+                  alt="Step 3" 
+                  className="w-full h-full object-cover rounded-full"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.nextElementSibling?.classList.remove('hidden');
+                  }}
+                />
+                <span className="hidden">3</span>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">Receive SMS</h3>
+              <p className="text-gray-600">
+                Get your verification code instantly and complete your registration or login.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      {/* CTA Section */}
+      <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+        <div className="container mx-auto px-6 lg:px-20 text-center">
+          <h2 className="text-3xl lg:text-4xl font-bold mb-6">
+            Ready to Protect Your Privacy?
+          </h2>
+          <p className="text-xl mb-8 max-w-2xl mx-auto">
+            Join thousands of users who trust SecureNumber for their SMS verification needs.
+          </p>
+          <button 
+            onClick={() => navigate('/register')}
+            className="px-8 py-4 bg-white text-blue-600 hover:bg-gray-100 rounded-full font-semibold text-lg"
+          >
+            Get Started Now
+          </button>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-gray-900 text-white py-12">
+        <div className="container mx-auto px-6 lg:px-20">
+          <div className="grid md:grid-cols-4 gap-8">
+            <div>
+              <div className="flex items-center mb-4">
+                <img 
+                  src={getImageUrl(imageConfig.logo.icon)} 
+                  alt="FaddedSMS Logo" 
+                  className="h-6 w-auto"
+                />
+              </div>
+              <p className="text-gray-400">
+                The most trusted platform for temporary phone numbers and SMS verification.
+              </p>
+            </div>
+            
+            <div>
+              <h3 className="font-semibold mb-4">Services</h3>
+              <ul className="space-y-2 text-gray-400">
+                <li><a href="#" className="hover:text-white transition-colors">WhatsApp</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Telegram</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Instagram</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Facebook</a></li>
+              </ul>
+            </div>
+            
+            <div>
+              <h3 className="font-semibold mb-4">Support</h3>
+              <ul className="space-y-2 text-gray-400">
+                <li><a href="#" className="hover:text-white transition-colors">Help Center</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Contact Us</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">FAQ</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">API Docs</a></li>
+              </ul>
+            </div>
+            
+            <div>
+              <h3 className="font-semibold mb-4">Legal</h3>
+              <ul className="space-y-2 text-gray-400">
+                <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Terms of Service</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Cookie Policy</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Refund Policy</a></li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
+            <p>&copy; 2024 SecureNumber. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+};
+
+export default LandingPageWithImages;

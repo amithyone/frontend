@@ -1,11 +1,11 @@
 // Centralized API configuration
 
-export const API_BASE_URL = (import.meta as any)?.env?.VITE_API_BASE_URL || 'http://localhost:8000';
-export const API_AUTH_URL = (import.meta as any)?.env?.VITE_API_AUTH_URL || 'http://localhost:8000';
-export const API_VTU_URL = (import.meta as any)?.env?.VITE_API_VTU_URL || 'http://localhost:8000/vtu';
-export const API_SMS_URL = (import.meta as any)?.env?.VITE_API_SMS_URL || 'http://localhost:8000';
-export const API_PROXY_URL = (import.meta as any)?.env?.VITE_API_PROXY_URL || 'http://localhost:8000/proxy';
-export const API_WALLET_URL = (import.meta as any)?.env?.VITE_API_WALLET_URL || 'http://localhost:8000/wallet';
+// export const API_BASE_URL = (import.meta as any)?.env?.VITE_API_BASE_URL || 'http://localhost:8000';
+// export const API_AUTH_URL = (import.meta as any)?.env?.VITE_API_AUTH_URL || 'http://localhost:8000';
+// export const API_VTU_URL = (import.meta as any)?.env?.VITE_API_VTU_URL || 'http://localhost:8000/vtu';
+// export const API_SMS_URL = (import.meta as any)?.env?.VITE_API_SMS_URL || 'http://localhost:8000';
+// export const API_PROXY_URL = (import.meta as any)?.env?.VITE_API_PROXY_URL || 'http://localhost:8000/proxy';
+// export const API_WALLET_URL = (import.meta as any)?.env?.VITE_API_WALLET_URL || 'http://localhost:8000/wallet';
 
 export type ApiStatus = 'success' | 'error';
 
@@ -80,7 +80,7 @@ export interface UnreadCountResponse {
   unread_count: number;
 }
 export interface MarkAsReadBody {
-  message_id: number;
+  message_id: string;
 }
 
 // VTU
@@ -113,7 +113,7 @@ export interface PurchaseProxyData { order_id: string | number; status: string }
 class ApiService {
   private baseUrl: string;
 
-  constructor(baseUrl: string = API_BASE_URL) {
+  constructor(baseUrl: string = 'https://api.fadsms.com/api') {
     this.baseUrl = baseUrl;
   }
 
@@ -132,11 +132,13 @@ class ApiService {
     const init: RequestInit = { ...options, headers };
 
     const resp = await fetch(url, init);
+    if (resp.status === 401) {
+      // Do not auto-clear token here; let callers decide how to handle 401s
+      return { status: 'error', message: 'Unauthenticated.', statusCode: 401 } as any;
+    }
     if (!resp.ok) {
-      // Log non-2xx as errors (but still attempt to return JSON body)
       console.error(`HTTP ${resp.status} for ${endpoint}`);
     }
-    // Throw on network-level errors only (fetch would have thrown). Here we parse JSON regardless
     const json = (await resp.json()) as ApiResponse<T>;
     return json;
   }
@@ -193,21 +195,8 @@ class ApiService {
     }
   }
 
-  public async createTransaction(body: { type: string; amount: number; description: string; reference?: string; status: string; metadata?: any }, init?: RequestInit) {
-    return this.request<TransactionItem>('/transactions', {
-      method: 'POST',
-      body: JSON.stringify(body),
-      ...init,
-    });
-  }
-
-  public async updateTransaction(id: number, body: { status?: string; metadata?: any }, init?: RequestInit) {
-    return this.request<TransactionItem>(`/transactions/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(body),
-      ...init,
-    });
-  }
+  // NOTE: Transactions are created automatically by backend purchase endpoints
+  // createTransaction and updateTransaction methods removed - not needed on frontend
 
   // Wallet
   public async getWalletStats(init?: RequestInit) {
@@ -218,12 +207,34 @@ class ApiService {
     return this.request<Array<{ id: number; amount: number; reference: string; status: string; created_at: string }>>('/wallet/deposits', { method: 'GET', ...init });
   }
 
+  // Support - unread replies count
+  public async getSupportUnreadCount(init?: RequestInit) {
+    const raw = await this.request<{ unread_count: number }>('/support/unread-count', { method: 'GET', ...init });
+    const anyResp: any = raw as any;
+    const payload: any = (typeof anyResp?.success === 'boolean') ? (anyResp?.data ?? {}) : (anyResp ?? {});
+    const unread = payload?.unread_count ?? payload?.data?.unread_count ?? 0;
+    const success = typeof unread === 'number';
+    return { success, data: { unread_count: success ? unread : 0 } } as any;
+  }
+
   public async initiateTopUp(body: InitiateTopUpBody, init?: RequestInit) {
-    return this.request<InitiateTopUpData>('/wallet/topup/initiate', {
+    // Protected endpoint expects only { amount } and uses auth token for user
+    const primary = await this.request<InitiateTopUpData>('/wallet/topup/initiate', {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JSON.stringify({ amount: body.amount }),
       ...init,
     });
+    const anyResp: any = primary as any;
+    const unauth = anyResp?.message === 'Unauthenticated.' || anyResp?.status === 401;
+    if (unauth) {
+      // Fallback to public initiate endpoint when not authenticated
+      return this.request<InitiateTopUpData>('/wallet/topup/initiate-public', {
+        method: 'POST',
+        body: JSON.stringify(body),
+        ...init,
+      });
+    }
+    return primary;
   }
 
   public async checkPaymentStatus(body: VerifyPaymentBody, init?: RequestInit) {
@@ -299,30 +310,59 @@ class ApiService {
     if (params.page) queryParams.append('page', params.page.toString());
     
     const endpoint = `/inbox/messages${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    return this.request<InboxMessagesResponse>(endpoint, { method: 'GET', ...init });
+    const raw = await this.request<InboxMessagesResponse>(endpoint, { method: 'GET', ...init });
+    const anyResp: any = raw as any;
+    const payload: any = (typeof anyResp?.success === 'boolean') ? (anyResp?.data ?? {}) : (anyResp ?? {});
+    const messages = payload?.messages ?? payload?.data?.messages ?? [];
+    const pagination = payload?.pagination ?? payload?.data?.pagination ?? {
+      current_page: 1,
+      last_page: 1,
+      per_page: Array.isArray(messages) ? messages.length : 0,
+      total: Array.isArray(messages) ? messages.length : 0,
+      has_more: false,
+    };
+    const success = Array.isArray(messages);
+    return { success, data: { messages, pagination }, message: anyResp?.message } as any;
   }
 
   public async getInboxUnreadCount(init?: RequestInit) {
-    return this.request<UnreadCountResponse>('/inbox/unread-count', { method: 'GET', ...init });
+    const raw = await this.request<UnreadCountResponse>('/inbox/unread-count', { method: 'GET', ...init });
+    const anyResp: any = raw as any;
+    if (anyResp?.message === 'Unauthenticated.' || anyResp?.status === 401) {
+      return { success: false, message: 'Unauthenticated.' } as any;
+    }
+    const payload: any = (typeof anyResp?.success === 'boolean') ? (anyResp?.data ?? {}) : (anyResp ?? {});
+    const unread = payload?.unread_count ?? payload?.data?.unread_count ?? 0;
+    const success = typeof unread === 'number';
+    return { success, data: { unread_count: success ? unread : 0 } } as any;
   }
 
   public async markInboxMessageAsRead(body: MarkAsReadBody, init?: RequestInit) {
-    return this.request<{ success: boolean; message: string }>('/inbox/mark-read', {
+    const raw = await this.request<{ success: boolean; message: string }>('/inbox/mark-read', {
       method: 'POST',
       body: JSON.stringify(body),
       ...init,
     });
+    const anyResp: any = raw as any;
+    const success = typeof anyResp?.success === 'boolean' ? anyResp.success : false;
+    return { success, message: anyResp?.message ?? (success ? 'OK' : 'Failed to mark as read') } as any;
   }
 
   public async markAllInboxMessagesAsRead(init?: RequestInit) {
-    return this.request<{ success: boolean; message: string }>('/inbox/mark-all-read', {
+    const raw = await this.request<{ success: boolean; message: string }>('/inbox/mark-all-read', {
       method: 'POST',
       ...init,
     });
+    const anyResp: any = raw as any;
+    const success = typeof anyResp?.success === 'boolean' ? anyResp.success : false;
+    return { success, message: anyResp?.message ?? (success ? 'OK' : 'Failed to mark all as read') } as any;
   }
 
   public async getInboxMessageDetails(messageId: number, init?: RequestInit) {
-    return this.request<InboxMessage>(`/inbox/message/${messageId}`, { method: 'GET', ...init });
+    const raw = await this.request<InboxMessage>(`/inbox/message/${messageId}`, { method: 'GET', ...init });
+    const anyResp: any = raw as any;
+    if (typeof anyResp?.success === 'boolean') return anyResp;
+    return { success: true, data: anyResp } as any;
   }
 
   public async deleteInboxMessage(messageId: number, init?: RequestInit) {
@@ -356,10 +396,10 @@ class ApiService {
 }
 
 // Create service instances with appropriate base URLs
-export const apiService = new ApiService(API_BASE_URL);
-export const vtuApiService = new ApiService(API_VTU_URL);
-export const smsApiService = new ApiService(API_SMS_URL);
-export const proxyApiService = new ApiService(API_PROXY_URL);
-export const walletApiService = new ApiService(API_WALLET_URL);
+export const apiService = new ApiService('https://api.fadsms.com/api');
+export const vtuApiService = new ApiService('https://api.fadsms.com/api');
+export const smsApiService = new ApiService('https://api.fadsms.com/api');
+export const proxyApiService = new ApiService('https://api.fadsms.com/api');
+export const walletApiService = new ApiService('https://api.fadsms.com/api');
 
 export default ApiService;

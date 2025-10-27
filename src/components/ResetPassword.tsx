@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { API_AUTH_URL } from '../services/api';
+// import { API_AUTH_URL } from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -24,7 +24,7 @@ const ResetPassword: React.FC = () => {
       setLoading(true);
       setError(null);
       setMessage(null);
-      const base = API_AUTH_URL;
+      const base = 'https://api.fadsms.com/api';
       // Conventional Laravel reset route; adjust if different in your backend
       const resp = await fetch(`${base}/reset-password`, {
         method: 'POST',

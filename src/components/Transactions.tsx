@@ -458,54 +458,54 @@ const Transactions: React.FC = () => {
 
       {/* Transaction Detail Modal */}
       {selectedTransaction && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className={`w-full max-w-md rounded-2xl shadow-2xl ${
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-3" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          <div className={`w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl ${
             isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
           }`}>
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-xl font-bold flex items-center">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-base font-semibold flex items-center">
                 {selectedTransaction.category === 'electricity' && (
-                  <Zap className="h-6 w-6 mr-2 text-yellow-500" />
+                  <Zap className="h-4 w-4 mr-1.5 text-yellow-500" />
                 )}
                 Transaction Details
               </h2>
               <button
                 onClick={() => setSelectedTransaction(null)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 <XCircle className="h-5 w-5" />
               </button>
             </div>
             
-            <div className="p-6 space-y-4">
+            <div className="p-4 space-y-3">
               <div className="text-center">
-                <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 ${
+                <div className={`inline-flex items-center justify-center w-12 h-12 rounded-full mb-3 ${
                   selectedTransaction.type === 'credit' ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900'
                 }`}>
                   {selectedTransaction.type === 'credit' ? (
-                    <ArrowDownLeft className="h-8 w-8 text-green-600 dark:text-green-400" />
+                    <ArrowDownLeft className="h-6 w-6 text-green-600 dark:text-green-400" />
                   ) : (
-                    <ArrowUpRight className="h-8 w-8 text-red-600 dark:text-red-400" />
+                    <ArrowUpRight className="h-6 w-6 text-red-600 dark:text-red-400" />
                   )}
                 </div>
-                <h3 className="text-lg font-semibold mb-1">{selectedTransaction.description}</h3>
-                <p className={`text-2xl font-bold ${
+                <h3 className="text-sm font-semibold mb-1">{selectedTransaction.description}</h3>
+                <p className={`text-xl font-bold ${
                   selectedTransaction.type === 'credit' ? 'text-green-600' : 'text-red-600'
                 }`}>
                   {selectedTransaction.type === 'credit' ? '+' : '-'}₦{selectedTransaction.amount.toLocaleString()}
                 </p>
               </div>
               
-              <div className="space-y-3">
-                <div className="flex justify-between">
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs">
                   <span className="text-gray-500">Transaction ID:</span>
-                  <span className="font-mono">{selectedTransaction.id}</span>
+                  <span className="font-mono text-xs">{selectedTransaction.id}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between text-xs">
                   <span className="text-gray-500">Date & Time:</span>
                   <span>{selectedTransaction.date} {selectedTransaction.time}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between text-xs items-center">
                   <span className="text-gray-500">Status:</span>
                   <div className="flex items-center space-x-1">
                     {getStatusIcon(selectedTransaction.status)}
@@ -515,21 +515,21 @@ const Transactions: React.FC = () => {
                   </div>
                 </div>
                 {selectedTransaction.service && (
-                  <div className="flex justify-between">
+                  <div className="flex justify-between text-xs">
                     <span className="text-gray-500">Service:</span>
                     <span>{selectedTransaction.service}</span>
                   </div>
                 )}
                 {selectedTransaction.recipient && (
-                  <div className="flex justify-between">
+                  <div className="flex justify-between text-xs">
                     <span className="text-gray-500">Recipient:</span>
-                    <span className="font-mono">{selectedTransaction.recipient}</span>
+                    <span className="font-mono text-xs">{selectedTransaction.recipient}</span>
                   </div>
                 )}
                 {selectedTransaction.reference && (
-                  <div className="flex justify-between">
+                  <div className="flex justify-between text-xs">
                     <span className="text-gray-500">Reference:</span>
-                    <span className="font-mono">{selectedTransaction.reference}</span>
+                    <span className="font-mono text-xs break-all">{selectedTransaction.reference}</span>
                   </div>
                 )}
                 
@@ -537,28 +537,28 @@ const Transactions: React.FC = () => {
                 {selectedTransaction.category === 'electricity' && (
                   <>
                     {selectedTransaction.customerName && (
-                      <div className="flex justify-between">
+                      <div className="flex justify-between text-xs">
                         <span className="text-gray-500">Customer Name:</span>
                         <span className="font-medium">{selectedTransaction.customerName}</span>
                       </div>
                     )}
                     {selectedTransaction.meterType && (
-                      <div className="flex justify-between">
+                      <div className="flex justify-between text-xs">
                         <span className="text-gray-500">Meter Type:</span>
                         <span className="font-medium capitalize">{selectedTransaction.meterType}</span>
                       </div>
                     )}
                     {selectedTransaction.token && (
-                      <div className="border-t pt-3 mt-3">
-                        <div className="bg-yellow-50 dark:bg-yellow-900 p-3 rounded-lg">
-                          <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">Token Details</h4>
+                      <div className="border-t pt-2 mt-2">
+                        <div className="bg-yellow-50 dark:bg-yellow-900 p-2.5 rounded-lg">
+                          <h4 className="text-sm font-semibold text-yellow-800 dark:text-yellow-200 mb-2">Token Details</h4>
                           <div className="space-y-1">
-                            <div className="flex justify-between">
+                            <div className="flex justify-between text-xs">
                               <span className="text-gray-600 dark:text-gray-300">Token:</span>
-                              <span className="font-mono text-lg font-bold text-yellow-700 dark:text-yellow-300">{selectedTransaction.token}</span>
+                              <span className="font-mono text-base font-bold text-yellow-700 dark:text-yellow-300">{selectedTransaction.token}</span>
                             </div>
                             {selectedTransaction.units && (
-                              <div className="flex justify-between">
+                              <div className="flex justify-between text-xs">
                                 <span className="text-gray-600 dark:text-gray-300">Units:</span>
                                 <span className="font-medium">{selectedTransaction.units}</span>
                               </div>
@@ -570,7 +570,7 @@ const Transactions: React.FC = () => {
                             navigator.clipboard.writeText(selectedTransaction.token || '');
                             // You could add a toast notification here
                           }}
-                          className="w-full mt-2 bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                          className="w-full mt-2 bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-3 rounded-lg text-sm font-medium transition-colors"
                         >
                           Copy Token
                         </button>

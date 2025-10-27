@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { vtuApiService, VtuNetwork, VtuDataBundle, VtuPurchaseRequest, VtuPurchaseResponse, VtuTransactionStatus, VtuProviderBalance } from '../services/vtuApi';
 
 interface UseVtuReturn {
@@ -30,6 +31,7 @@ interface UseVtuReturn {
 }
 
 export const useVtu = (): UseVtuReturn => {
+  const { token } = useAuth();
   // Networks state
   const [airtimeNetworks, setAirtimeNetworks] = useState<VtuNetwork[]>([]);
   const [dataNetworks, setDataNetworks] = useState<VtuNetwork[]>([]);
@@ -146,12 +148,15 @@ export const useVtu = (): UseVtuReturn => {
     }
   }, []);
 
-  // Load initial data
+  // Load data when auth token is available
   useEffect(() => {
+    if (!token) {
+      return;
+    }
     fetchAirtimeNetworks();
     fetchDataNetworks();
     fetchProviderBalance();
-  }, []); // Empty dependency array to run only once on mount
+  }, [token]);
 
   return {
     // Networks

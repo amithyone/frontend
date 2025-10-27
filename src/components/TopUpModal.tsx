@@ -1,7 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useBranding } from '../contexts/BrandingContext';
 import { apiService } from '../services/api';
 import { CreditCard, DollarSign, Copy, CheckCircle, Clock, XCircle } from 'lucide-react';
+
+// Declare global payment gateway objects
+declare global {
+  interface Window {
+    PaystackPop?: any;
+    FlutterwaveCheckout?: any;
+  }
+}
 
 interface TopUpModalProps {
   isOpen: boolean;
@@ -9,14 +18,16 @@ interface TopUpModalProps {
   onCredited?: () => void; // optional callback to refresh balance/history
 }
 
-const quickAmounts = [1000, 2000, 5000, 10000, 20000, 50000];
+const quickAmounts = [1000, 2000, 5000];
 
 const TopUpModal: React.FC<TopUpModalProps> = ({ isOpen, onClose, onCredited }) => {
   const { user } = useAuth();
+  const { getPanelId, isResellerPanel } = useBranding();
 
   const [amount, setAmount] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [gateway, setGateway] = useState<'payvibe'>('payvibe');
+  const [paymentConfig, setPaymentConfig] = useState<any>(null);
 
   const [accountNumber, setAccountNumber] = useState<string>('');
   const [accountName, setAccountName] = useState<string>('');
@@ -26,7 +37,9 @@ const TopUpModal: React.FC<TopUpModalProps> = ({ isOpen, onClose, onCredited }) 
   const [isChecking, setIsChecking] = useState(false);
 
   useEffect(() => {
-    if (!isOpen) {
+    if (isOpen) {
+      loadPaymentConfig();
+    } else {
       setAmount('');
       setIsGenerating(false);
       setGateway('payvibe');
@@ -38,6 +51,49 @@ const TopUpModal: React.FC<TopUpModalProps> = ({ isOpen, onClose, onCredited }) 
       setIsChecking(false);
     }
   }, [isOpen]);
+
+  const loadPaymentConfig = async () => {
+    try {
+      const panelId = getPanelId();
+      const url = panelId 
+        ? `${import.meta.env.VITE_API_BASE_URL}/payment-config?panel_id=${panelId}`
+        : `${import.meta.env.VITE_API_BASE_URL}/payment-config`;
+      
+      const response = await fetch(url, {
+        headers: { 'Accept': 'application/json' }
+      });
+      const data = await response.json();
+      
+      if (data.status === 'success') {
+        setPaymentConfig(data.data);
+        console.log('Payment config loaded:', data.data);
+        // Dynamically load gateway scripts only for reseller panels
+        if (data.data?.is_reseller && data.data?.gateway) {
+          if (data.data.gateway === 'paystack' && data.data.paystack_public_key) {
+            await loadScriptOnce('https://js.paystack.co/v1/inline.js', 'paystack-inline');
+          }
+          if (data.data.gateway === 'flutterwave' && data.data.flutterwave_public_key) {
+            await loadScriptOnce('https://checkout.flutterwave.com/v3.js', 'flutterwave-v3');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load payment config:', error);
+    }
+  };
+
+  const loadScriptOnce = (src: string, id: string) => {
+    return new Promise<void>((resolve, reject) => {
+      if (document.getElementById(id)) return resolve();
+      const s = document.createElement('script');
+      s.id = id;
+      s.src = src;
+      s.async = true;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error(`Failed to load script ${src}`));
+      document.head.appendChild(s);
+    });
+  };
 
   const charge = useMemo(() => {
     const a = parseInt(amount || '0', 10) || 0;
@@ -86,14 +142,43 @@ const TopUpModal: React.FC<TopUpModalProps> = ({ isOpen, onClose, onCredited }) 
       alert('Please enter a valid amount (minimum ₦100)');
       return;
     }
-    if (gateway !== 'payvibe') {
-      alert('Unsupported gateway selected');
-      return;
+
+    const panelId = getPanelId();
+    const isOnResellerPanel = paymentConfig?.is_reseller && panelId;
+
+    // If on reseller panel, check if they have configured payment gateway
+    if (isOnResellerPanel) {
+      if (!paymentConfig?.gateway) {
+        alert('⚠️ This panel has not configured a payment gateway yet. Please contact the panel administrator.');
+        return;
+      }
+
+      if (paymentConfig.gateway === 'paystack' && !paymentConfig.paystack_public_key) {
+        alert('⚠️ Paystack not properly configured. Please contact the panel administrator.');
+        return;
+      }
+
+      if (paymentConfig.gateway === 'flutterwave' && !paymentConfig.flutterwave_public_key) {
+        alert('⚠️ Flutterwave not properly configured. Please contact the panel administrator.');
+        return;
+      }
+
+      // Use Paystack or Flutterwave for reseller panel customers
+      if (paymentConfig.gateway === 'paystack') {
+        initiatePaystackPayment(a, paymentConfig.paystack_public_key);
+        return;
+      } else if (paymentConfig.gateway === 'flutterwave') {
+        initiateFlutterwavePayment(a, paymentConfig.flutterwave_public_key);
+        return;
+      }
     }
+
+    // Main site users - use PayVibe
     setIsGenerating(true);
     try {
-      const userId = (user as any)?.id || (user as any)?.user_id || 0;
+      const userId = user?.id || 1; // Use user ID from auth context, fallback to 1 for testing
       const resp = await apiService.initiateTopUp({ amount: a, user_id: userId });
+      
       if (resp.status === 'success' && resp.data) {
         setAccountNumber(resp.data.account_number);
         setAccountName(resp.data.account_name);
@@ -109,6 +194,49 @@ const TopUpModal: React.FC<TopUpModalProps> = ({ isOpen, onClose, onCredited }) 
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const initiatePaystackPayment = (amount: number, publicKey: string) => {
+    // @ts-ignore - Paystack is loaded globally
+    const handler = window.PaystackPop?.setup({
+      key: publicKey,
+      email: (user as any)?.email || '',
+      amount: amount * 100, // Convert to kobo
+      currency: 'NGN',
+      ref: 'PSK_' + Math.floor(Math.random() * 1000000000),
+      callback: function(response: any) {
+        // Payment successful
+        alert('✅ Payment successful! Your wallet will be credited shortly.');
+        onClose();
+        // Trigger balance refresh if callback exists
+      },
+      onClose: function() {
+        alert('Payment cancelled');
+      }
+    });
+    handler?.openIframe();
+  };
+
+  const initiateFlutterwavePayment = (amount: number, publicKey: string) => {
+    // @ts-ignore - Flutterwave is loaded globally
+    window.FlutterwaveCheckout?.({
+      public_key: publicKey,
+      tx_ref: 'FLW_' + Math.floor(Math.random() * 1000000000),
+      amount: amount,
+      currency: 'NGN',
+      payment_options: 'card,banktransfer,ussd',
+      customer: {
+        email: (user as any)?.email || '',
+        name: (user as any)?.name || '',
+      },
+      callback: function(response: any) {
+        alert('✅ Payment successful! Your wallet will be credited shortly.');
+        onClose();
+      },
+      onclose: function() {
+        alert('Payment cancelled');
+      }
+    });
   };
 
   const checkNow = async () => {
@@ -133,8 +261,8 @@ const TopUpModal: React.FC<TopUpModalProps> = ({ isOpen, onClose, onCredited }) 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50">
-      <div className="w-full sm:w-[480px] bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl shadow-xl p-4 sm:p-6">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <div className="w-full sm:w-[480px] bg-white text-gray-900 dark:bg-gray-800 dark:text-white rounded-2xl shadow-xl p-4 sm:p-6 max-h-[90vh] sm:max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold dark:text-white">Fund Wallet</h3>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white">✕</button>
@@ -166,11 +294,29 @@ const TopUpModal: React.FC<TopUpModalProps> = ({ isOpen, onClose, onCredited }) 
           <div>
             <label className="block text-sm font-medium mb-2 dark:text-gray-300">Payment Gateway</label>
             <div className="p-3 rounded-lg border dark:border-gray-600 dark:bg-gray-700">
-              <div className="flex items-center space-x-3">
-                <CreditCard className="h-5 w-5 text-orange-500" />
-                <span className="font-medium dark:text-white">PayVibe Bank Transfer</span>
-              </div>
-              <p className="text-xs text-gray-500 mt-1 dark:text-gray-300">Instant virtual account generation and automatic verification</p>
+              {paymentConfig?.is_reseller && paymentConfig?.gateway ? (
+                <div>
+                  <div className="flex items-center space-x-3">
+                    <CreditCard className="h-5 w-5 text-blue-500" />
+                    <span className="font-medium dark:text-white">
+                      {paymentConfig.gateway === 'paystack' ? '💳 Paystack' : 
+                       paymentConfig.gateway === 'flutterwave' ? '🦋 Flutterwave' : 
+                       'PayVibe'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1 dark:text-gray-300">
+                    Payments processed by panel's configured gateway
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <div className="flex items-center space-x-3">
+                    <CreditCard className="h-5 w-5 text-orange-500" />
+                    <span className="font-medium dark:text-white">PayVibe Bank Transfer</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1 dark:text-gray-300">Instant virtual account generation and automatic verification</p>
+                </div>
+              )}
             </div>
           </div>
 

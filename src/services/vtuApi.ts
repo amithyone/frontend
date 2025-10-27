@@ -15,6 +15,7 @@ export interface VtuDataBundle {
   price: number;
   network: string;
   description?: string;
+  availability?: string;
 }
 
 export interface VtuPurchaseRequest {
@@ -66,27 +67,16 @@ const MOCK_DATA_NETWORKS: VtuNetwork[] = [
   { id: '4', name: '9mobile', code: '9MOBILE', status: 'active' },
 ];
 
+// Mock data removed - VTU services should always use real provider prices
+// If API fails, return empty array to avoid showing incorrect pricing
 const MOCK_DATA_BUNDLES: { [key: string]: VtuDataBundle[] } = {
-  MTN: [
-    { id: '1', name: '1GB', size: '1GB', validity: '30 days', price: 250, network: 'MTN' },
-    { id: '2', name: '2GB', size: '2GB', validity: '30 days', price: 450, network: 'MTN' },
-    { id: '3', name: '5GB', size: '5GB', validity: '30 days', price: 1000, network: 'MTN' },
-  ],
-  AIRTEL: [
-    { id: '4', name: '1.5GB', size: '1.5GB', validity: '30 days', price: 300, network: 'AIRTEL' },
-    { id: '5', name: '3GB', size: '3GB', validity: '30 days', price: 600, network: 'AIRTEL' },
-  ],
-  GLO: [
-    { id: '6', name: '1GB', size: '1GB', validity: '30 days', price: 200, network: 'GLO' },
-    { id: '7', name: '2GB', size: '2GB', validity: '30 days', price: 400, network: 'GLO' },
-  ],
-  '9MOBILE': [
-    { id: '8', name: '1GB', size: '1GB', validity: '30 days', price: 180, network: '9MOBILE' },
-    { id: '9', name: '2GB', size: '2GB', validity: '30 days', price: 350, network: '9MOBILE' },
-  ],
+  MTN: [],
+  AIRTEL: [],
+  GLO: [],
+  '9MOBILE': [],
 };
 
-import { API_VTU_URL } from './api';
+// import { API_VTU_URL } from './api';
 
 // Lightweight localStorage cache with TTL
 function cacheGet<T>(key: string): T | null {
@@ -120,7 +110,7 @@ class VtuApiService {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = API_VTU_URL;
+    this.baseUrl = 'https://api.fadsms.com/api';
   }
 
   /**
@@ -208,7 +198,7 @@ class VtuApiService {
         phone: request.phone,
         amount: request.amount ?? 0,
       };
-      const response = await fetch(`${this.baseUrl}/airtime/purchase`, {
+      const response = await fetch(`${this.baseUrl}/vtu/airtime/purchase`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -262,7 +252,7 @@ class VtuApiService {
       };
 
       console.log('Data bundle purchase payload:', payload);
-      const response = await fetch(`${this.baseUrl}/data/purchase`, {
+      const response = await fetch(`${this.baseUrl}/vtu/data/purchase`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -305,7 +295,7 @@ class VtuApiService {
   async getTransactionStatus(reference: string): Promise<VtuTransactionStatus> {
     try {
       const params = new URLSearchParams({ reference });
-      const response = await fetch(`${this.baseUrl}/transaction/status?${params}`, {
+      const response = await fetch(`${this.baseUrl}/vtu/transaction/status?${params}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -338,7 +328,7 @@ class VtuApiService {
   // TV: variations (public)
   async getTvVariations(serviceId: string) {
     const params = new URLSearchParams({ service_id: serviceId.toLowerCase() });
-    const resp = await fetch(`${this.baseUrl}/variations/tv?${params}`, {
+    const resp = await fetch(`${this.baseUrl}/vtu/variations/tv?${params}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -353,7 +343,7 @@ class VtuApiService {
   async verifyCustomer(serviceId: string, customerId: string, variationId?: string) {
     const payload: any = { service_id: serviceId.toLowerCase(), customer_id: customerId };
     if (variationId) payload.variation_id = variationId;
-    const resp = await fetch(`${this.baseUrl}/verify-customer`, {
+    const resp = await fetch(`${this.baseUrl}/vtu/verify-customer`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.getAuthToken()}` },
       body: JSON.stringify(payload),
@@ -368,7 +358,7 @@ class VtuApiService {
   // Purchase TV
   async purchaseTv(serviceId: string, customerId: string, variationId: string) {
     const payload = { service_id: serviceId.toLowerCase(), customer_id: customerId, variation_id: variationId };
-    const resp = await fetch(`${this.baseUrl}/tv/purchase`, {
+    const resp = await fetch(`${this.baseUrl}/vtu/tv/purchase`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.getAuthToken()}` },
       body: JSON.stringify(payload),
@@ -385,7 +375,7 @@ class VtuApiService {
    */
   async getProviderBalance(): Promise<VtuProviderBalance> {
     try {
-      const response = await fetch(`${this.baseUrl}/provider/balance`, {
+      const response = await fetch(`${this.baseUrl}/vtu/provider/balance`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -415,7 +405,7 @@ class VtuApiService {
    */
   async validatePhoneNumber(phone: string, network: string): Promise<{ is_valid: boolean; phone: string; network: string }> {
     try {
-      const response = await fetch(`${this.baseUrl}/validate/phone`, {
+      const response = await fetch(`${this.baseUrl}/vtu/validate/phone`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -465,7 +455,7 @@ class VtuApiService {
 
   // Internal fresh fetchers (no cache, no background refresh)
   private async fetchAirtimeNetworksFresh(): Promise<VtuNetwork[]> {
-    const response = await fetch(`${this.baseUrl}/airtime/networks`, {
+    const response = await fetch(`${this.baseUrl}/vtu/airtime/networks`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -478,7 +468,7 @@ class VtuApiService {
   }
 
   private async fetchDataNetworksFresh(): Promise<VtuNetwork[]> {
-    const response = await fetch(`${this.baseUrl}/data/networks`, {
+    const response = await fetch(`${this.baseUrl}/vtu/data/networks`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -505,7 +495,7 @@ class VtuApiService {
 
   private async fetchDataBundlesFresh(network: string): Promise<VtuDataBundle[]> {
     const params = new URLSearchParams({ service_id: network.toLowerCase() });
-    const fullUrl = `${this.baseUrl}/variations/data?${params}`;
+    const fullUrl = `${this.baseUrl}/vtu/variations/data?${params}`;
     const response = await fetch(fullUrl, {
       method: 'GET',
       headers: {
@@ -520,11 +510,20 @@ class VtuApiService {
     const payload = data.data;
     const rawList = Array.isArray(payload) ? payload : (payload?.data && Array.isArray(payload.data) ? payload.data : []);
     const mapped = (rawList as any[]).map((item: any, idx: number) => {
-      const id = String(item?.variation_id ?? item?.id ?? '');
+      const id = String(item?.variation_id ?? item?.id ?? item?.plan ?? `plan_${idx}`);
       const planText = item?.data_plan || item?.variation_name || item?.plan_name || item?.plan || '';
       const price = Number(item?.price ?? item?.variation_amount ?? item?.amount ?? item?.reseller_price ?? item?.selling_price ?? 0);
-      return { id, name: planText || 'Plan', size: planText, validity: item?.validity || '', price, network: network.toUpperCase(), description: item?.description || planText } as VtuDataBundle;
-    }).filter((b: VtuDataBundle) => b.id && /^\d+$/.test(b.id));
+      return { 
+        id, 
+        name: planText || 'Plan', 
+        size: planText, 
+        validity: item?.validity || '', 
+        price, 
+        network: network.toUpperCase(), 
+        description: item?.description || planText,
+        availability: item?.availability || 'Available'
+      } as VtuDataBundle;
+    }).filter((b: VtuDataBundle) => b.id && b.price > 0 && b.availability === 'Available');
     return mapped;
   }
 }
