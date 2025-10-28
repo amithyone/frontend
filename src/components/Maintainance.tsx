@@ -9,7 +9,7 @@ export default function MaintenancePage() {
           <img
             src="/icons/faddedsmsLogo.svg"
             alt="FaddedSMS Logo"
-            className="h-12 w-auto"
+            className="h-7 w-auto"
           />
         </div>
 
