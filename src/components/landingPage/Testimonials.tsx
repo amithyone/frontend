@@ -1,9 +1,13 @@
-import type React from "react"
+"use client"
+
+import React from "react"
+import { motion } from "framer-motion"
 
 interface Testimonial {
   name: string
   role: string
   text: string
+  avatar: string
 }
 
 export const Testimonials: React.FC = () => {
@@ -12,18 +16,31 @@ export const Testimonials: React.FC = () => {
       name: "Patelia Mich",
       role: "Freelancer",
       text: "I have been using SMS Pro's renewable rentals for several weeks now. It gives me peace of mind when ordering food and rideshares.",
+      avatar: "/icons/avatar1.svg",
     },
     {
       name: "Darrell Steward",
       role: "Freelancer",
       text: "This is hands down the best tool to bypass 2-factor OTP codes. Their numbers always work and the support team is great.",
+      avatar: "/icons/avater2.svg",
     },
     {
       name: "Eleanor Pena",
       role: "Virtual Assistant",
-      text: "Got a temporal USA Number on Faddedsms for several weeks now. It gives me peace of mind when ordering food and rideshares",
+      text: "Got a temporary USA Number on Faddedsms for several weeks now. It gives me peace of mind when ordering food and rideshares",
+      avatar: "/icons/avatar3.svg",
     },
   ]
+
+  const containerVariants = {
+    hidden: { opacity: 0, y: 50 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.6, staggerChildren: 0.2 } },
+  }
+
+  const cardVariants = {
+    hidden: { opacity: 0, y: 60 },
+    visible: { opacity: 1, y: 0 },
+  }
 
   const StarRating = () => (
     <div className="flex text-yellow-400">
@@ -38,31 +55,56 @@ export const Testimonials: React.FC = () => {
   return (
     <section className="py-12 sm:py-16 lg:py-20 bg-white">
       <div className="container mx-auto px-6 lg:px-20">
-        <div className="text-center mb-12 lg:mb-16">
-          <p className="text-sm uppercase tracking-wider text-gray-500 mb-4">Ratings and Reviews</p>
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-6">Loved by users worldwide.</h2>
+
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-12 lg:mb-16"
+        >
+          <p className="text-sm uppercase tracking-wider text-gray-500 mb-4">
+            Ratings and Reviews
+          </p>
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-6">
+            Loved by users worldwide.
+          </h2>
           <p className="text-base sm:text-lg text-gray-700 max-w-3xl mx-auto">
             Trusted worldwide by individuals and businesses who value privacy, speed, and reliability.
           </p>
-        </div>
+        </motion.div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8"
+        >
           {testimonials.map((testimonial, index) => (
-            <div key={index} className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
-              <div className="flex items-center mb-4">
-                <StarRating />
-              </div>
-              <p className="text-sm sm:text-base text-gray-700 mb-6">"{testimonial.text}"</p>
+            <motion.div
+              key={index}
+              variants={cardVariants}
+              className="bg-white rounded-xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-shadow duration-300"
+            >
+              <StarRating />
+              <p className="text-sm sm:text-base text-gray-700 my-6">
+                "{testimonial.text}"
+              </p>
               <div className="flex items-center">
-                <div className="w-10 h-10 bg-gray-300 rounded-full mr-3"></div>
+                <img
+                  src={testimonial.avatar}
+                  alt={testimonial.name}
+                  className="w-10 h-10 rounded-full mr-3"
+                />
                 <div>
-                  <p className="font-semibold text-gray-900 text-sm sm:text-base">{testimonial.name}</p>
-                  <p className="text-xs sm:text-sm text-gray-500">{testimonial.role}</p>
+                  <p className="font-semibold text-gray-900">{testimonial.name}</p>
+                  <p className="text-sm text-gray-500">{testimonial.role}</p>
                 </div>
               </div>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </div>
     </section>
   )

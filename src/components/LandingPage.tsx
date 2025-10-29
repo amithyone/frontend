@@ -23,9 +23,9 @@ import {
         <FeatureCards />
         <RealNumbersSection />
         <HowItWorks />
+        <GetStartedCTA />
         <Testimonials />
         <FAQ />
-        <GetStartedCTA />
         <FinalCTA />
         <Footer />
             {/* <Maintainance/> */}
