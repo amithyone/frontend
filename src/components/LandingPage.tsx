@@ -1,23 +1,23 @@
-// import {
-//     Header,
-//     HeroSection,
-//     ServicesSection,
-//     FeatureCards,
-//     RealNumbersSection,
-//     HowItWorks,
-//     Testimonials,
-//     FAQ,
-//     GetStartedCTA,
-//     FinalCTA,
-//     Footer,
-//   } from "./landingPage/index"
+import {
+    Header,
+    HeroSection,
+    ServicesSection,
+    FeatureCards,
+    RealNumbersSection,
+    HowItWorks,
+    Testimonials,
+    FAQ,
+    GetStartedCTA,
+    FinalCTA,
+    Footer,
+  } from "./landingPage/index"
 
-import Maintainance from "./Maintainance";
+// import Maintainance from "./Maintainance";
   
   export default function LandingPage() {
     return (
       <div className="bg-white w-full min-h-screen">
-        {/* <Header />
+        <Header />
         <HeroSection />
         <ServicesSection />
         <FeatureCards />
@@ -27,8 +27,8 @@ import Maintainance from "./Maintainance";
         <FAQ />
         <GetStartedCTA />
         <FinalCTA />
-        <Footer /> */}
-            <Maintainance/>
+        <Footer />
+            {/* <Maintainance/> */}
       </div>
     )
   }

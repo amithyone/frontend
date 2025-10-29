@@ -1,20 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Inbox and Notification Styles */
 @layer components {
-  /* Inbox Link Button */
   .inbox-link-btn {
     @apply bg-blue-600 hover:bg-blue-700 text-white border-none py-2 px-4 rounded-lg cursor-pointer text-sm font-medium transition-colors duration-200 mt-2;
   }
 
-  /* Notification Badges */
   .unread-badge, .notification-badge {
     @apply bg-red-500 text-white rounded-full px-2 py-1 text-xs font-medium ml-2 min-w-[18px] text-center;
   }
 
-  /* Inbox Page Styles */
   .inbox-page {
     @apply p-5 max-w-4xl mx-auto;
   }
@@ -144,12 +142,8 @@
   }
 
   @keyframes pulse {
-    0%, 100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.5;
-    }
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
   }
 
   /* Hover effects for interactive elements */
@@ -185,4 +179,8 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+}
+
+body {
+  font-family: "Plus Jakarta Sans", sans-serif;
 }

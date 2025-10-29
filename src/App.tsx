@@ -28,7 +28,7 @@ function App() {
         <AuthProvider>
           <VtuProvider>
             <Router>
-            <div className="min-h-screen bg-gradient-to-br from-oxford-blue via-oxford-blue-light to-oxford-blue-dark">
+            <div className="min-h-screen bg-white mt-20">
               <Routes>
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/login" element={<Login />} />
