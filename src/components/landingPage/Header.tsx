@@ -9,7 +9,7 @@ export const Header: React.FC = () => {
   const navigate = useNavigate()
 
   return (
-    <header className="flex items-center justify-between px-6 lg:px-20 py-6 bg-transparent absolute top-0 left-0 right-0 z-20">
+    <header className="flex items-center justify-between px-6 lg:px-20 py-6 bg-transparent top-0 left-0 right-0 z-20 fixed">
       <div className="flex items-center">
         <img src="/public/icons/faddedsmsLogo.svg" alt="FaddedSMS Logo" className="h-8 w-auto" />
       </div>
@@ -18,20 +18,20 @@ export const Header: React.FC = () => {
       <div className="hidden md:flex items-center gap-4">
         <button
           onClick={() => navigate("/register")}
-          className="px-6 py-2 rounded-full border border-white/40 bg-transparent hover:bg-white/10 text-white font-medium transition-all duration-200"
+          className="px-6 py-2 rounded-full bg-white hover:bg-black/10 text-black font-medium transition-all duration-200"
         >
           Sign Up
         </button>
         <button
           onClick={() => navigate("/login")}
-          className="px-6 py-2 rounded-full bg-orange-500 hover:bg-orange-600 text-white font-medium transition-all duration-200"
+          className="px-6 py-2 rounded-full bg-[#5DEBD7] text-black font-medium transition-all duration-200"
         >
           Sign in
         </button>
       </div>
 
       {/* Mobile Menu Button */}
-      <button className="md:hidden text-white text-3xl z-30" onClick={() => setMenuOpen(!menuOpen)}>
+      <button className="md:hidden text-black text-3xl z-30" onClick={() => setMenuOpen(!menuOpen)}>
         ☰
       </button>
 
