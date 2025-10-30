@@ -11,7 +11,7 @@ export const Header: React.FC = () => {
   return (
     <header className="flex items-center justify-between px-6 lg:px-20 py-6 bg-transparent top-0 left-0 right-0 z-20 fixed">
       <div className="flex items-center">
-        <img src="/public/icons/faddedsmsLogo.svg" alt="FaddedSMS Logo" className="h-8 w-auto" />
+        <img src="/icons/faddedsmsLogo.svg" alt="FaddedSMS Logo" className="h-8 w-auto" />
       </div>
 
       {/* Desktop Navigation */}
