@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -20,6 +19,7 @@ import FiveSimPage from './components/FiveSimPage';
 import TigerPage from './components/TigerPage';
 import TextVerifiedPage from './components/TextVerifiedPage';
 import './index.css';
+import { Toaster } from 'react-hot-toast';
 
 function App() {
   return (
