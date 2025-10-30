@@ -1,14 +1,16 @@
 "use client"
 
 import type React from "react"
-import { useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
 
 export const HeroSection: React.FC = () => {
-    const navigate = useNavigate()
+    const handleGetStarted = () => {
+        // Navigate to register page
+        console.log("Navigate to register")
+    }
 
     return (
-        <section className="relative text-white overflow-hidden flex items-center lg:m-5 mt-4 rounded-2xl lg:rounded-3xl">
+        <section className="relative text-white overflow-hidden flex items-center lg:m-5 mt-20 lg:mt-20 rounded-2xl lg:rounded-3xl">
             {/* Background */}
             <div className="absolute inset-0 w-screen h-full z-0 left-1/2 right-1/2 -ml-[50vw] -mr-[50vw]">
                 <img
@@ -41,7 +43,7 @@ export const HeroSection: React.FC = () => {
                         </p>
 
                         <button
-                            onClick={() => navigate("/register")}
+                            onClick={handleGetStarted}
                             className="px-8 py-4 bg-[#5DEBD7] rounded-full text-gray-900 font-semibold text-lg transition-all hover:scale-105 shadow-lg hover:shadow-xl"
                         >
                             Get Started
@@ -59,48 +61,48 @@ export const HeroSection: React.FC = () => {
                             <img
                                 src="/images/hero-hand-phone.png"
                                 alt="Phone"
-                                className="w-80 sm:w-96 lg:w-[530px] xl:w-[630px] h-auto object-cover drop-shadow-2xl"
+                                className="w-72 sm:w-80 md:w-96 lg:w-[530px] xl:w-[630px] h-auto object-cover drop-shadow-2xl"
                             />
 
-                            {/* Floating tag 1 */}
+                            {/* Floating tag 1 - Virtual Number */}
                             <motion.div
                                 animate={{ y: [0, -12, 0] }}
                                 transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                                className="absolute top-10 left-6 lg:left-20 lg:top-40 bg-[#EDECEC] rounded-2xl px-4 py-3 shadow-2xl"
+                                className="absolute top-2 left-2 sm:top-10 sm:left-6 lg:left-20 lg:top-40 bg-[#EDECEC] rounded-lg sm:rounded-xl lg:rounded-2xl px-2 py-2 sm:px-3 sm:py-2.5 lg:px-4 lg:py-3 shadow-xl lg:shadow-2xl"
                             >
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-[#5DEBD7] rounded-xl flex items-center justify-center">
-                                        <img src="/icons/bars.svg" alt="Virtual Number" className="w-6 h-6" />
+                                <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3">
+                                    <div className="w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10 bg-[#5DEBD7] rounded-lg lg:rounded-xl flex items-center justify-center flex-shrink-0">
+                                        <img src="/icons/bars.svg" alt="Virtual Number" className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6" />
                                     </div>
-                                    <span className="text-gray-800 text-sm font-semibold">Virtual Number</span>
+                                    <span className="text-gray-800 text-xs sm:text-sm lg:text-sm font-semibold whitespace-nowrap">Virtual Number</span>
                                 </div>
                             </motion.div>
 
-                            {/* Floating tag 2 */}
+                            {/* Floating tag 2 - Fund Wallet */}
                             <motion.div
                                 animate={{ y: [0, -15, 0] }}
                                 transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
-                                className="absolute top-40 right-0 lg:top-72 bg-[#EDECEC] rounded-2xl px-4 py-3 shadow-2xl"
+                                className="absolute top-32 right-0 sm:top-40 sm:right-0 lg:top-72 bg-[#EDECEC] rounded-lg sm:rounded-xl lg:rounded-2xl px-2 py-2 sm:px-3 sm:py-2.5 lg:px-4 lg:py-3 shadow-xl lg:shadow-2xl"
                             >
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-[#C5FF95] rounded-xl flex items-center justify-center">
-                                        <img src="/icons/money.svg" alt="Fund Wallet" className="w-6 h-6" />
+                                <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3">
+                                    <div className="w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10 bg-[#C5FF95] rounded-lg lg:rounded-xl flex items-center justify-center flex-shrink-0">
+                                        <img src="/icons/money.svg" alt="Fund Wallet" className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6" />
                                     </div>
-                                    <span className="text-gray-800 text-sm font-semibold">Fund Wallet</span>
+                                    <span className="text-gray-800 text-xs sm:text-sm lg:text-sm font-semibold whitespace-nowrap">Fund Wallet</span>
                                 </div>
                             </motion.div>
 
-                            {/* Floating tag 3 */}
+                            {/* Floating tag 3 - Bill Payment */}
                             <motion.div
                                 animate={{ y: [0, -18, 0] }}
                                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                                className="absolute bottom-32 -left-4 bg-white rounded-2xl px-4 py-3 shadow-2xl"
+                                className="absolute bottom-24 -left-2 sm:bottom-32 sm:-left-4 bg-white rounded-lg sm:rounded-xl lg:rounded-2xl px-2 py-2 sm:px-3 sm:py-2.5 lg:px-4 lg:py-3 shadow-xl lg:shadow-2xl"
                             >
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
-                                        <img src="/icons/telephone.svg" alt="Bill Payment" className="w-6 h-6" />
+                                <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3">
+                                    <div className="w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10 bg-red-100 rounded-lg lg:rounded-xl flex items-center justify-center flex-shrink-0">
+                                        <img src="/icons/telephone.svg" alt="Bill Payment" className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6" />
                                     </div>
-                                    <span className="text-gray-800 text-sm font-semibold">Bill Payment</span>
+                                    <span className="text-gray-800 text-xs sm:text-sm lg:text-sm font-semibold whitespace-nowrap">Bill Payment</span>
                                 </div>
                             </motion.div>
                         </div>

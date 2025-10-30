@@ -19,8 +19,6 @@ import FiveSimPage from './components/FiveSimPage';
 import TigerPage from './components/TigerPage';
 import TextVerifiedPage from './components/TextVerifiedPage';
 import './index.css';
-import MaintenancePage from './components/Maintainance';
-
 
 function App() {
   return (
@@ -29,20 +27,15 @@ function App() {
         <AuthProvider>
           <VtuProvider>
             <Router>
-            <div className="min-h-screen bg-white mt-20">
+            <div className="min-h-screen bg-gradient-to-br from-oxford-blue via-oxford-blue-light to-oxford-blue-dark">
               <Routes>
-                <Route path="/" element={<MaintenancePage />} />
-                {/* <Route path="/" element={<LandingPage />} /> */}
-                <Route path="/login" element={<MaintenancePage />} />
-                {/* <Route path="/login" element={<Login />} /> */}
-                <Route path="/register" element={<MaintenancePage />} />
-                {/* <Route path="/register" element={<Register />} /> */}
-                <Route path="/auth/callback" element={<MaintenancePage />} />
-                {/* <Route path="/auth/callback" element={<AuthCallback />} /> */}
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
                 <Route path="/dashboard" element={
                   <ProtectedRoute>
-                    <MaintenancePage />
-                    {/* <Dashboard /> */}
+                    <Dashboard />
                   </ProtectedRoute>
                 } />
                 <Route path="/reseller-admin" element={

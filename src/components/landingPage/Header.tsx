@@ -18,7 +18,7 @@ export const Header: React.FC = () => {
       <div className="hidden md:flex items-center gap-4">
         <button
           onClick={() => navigate("/register")}
-          className="px-6 py-2 rounded-full bg-white hover:bg-black/10 text-black font-medium transition-all duration-200"
+          className="px-6 py-2 rounded-full bg-white border border-[#172624] hover:bg-black/10 text-black font-medium transition-all duration-200"
         >
           Sign Up
         </button>
