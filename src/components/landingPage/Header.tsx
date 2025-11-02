@@ -1,15 +1,29 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 
 export const Header: React.FC = () => {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
   const navigate = useNavigate()
 
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 50)
+    }
+
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
+
   return (
-    <header className="flex items-center justify-between px-6 lg:px-20 py-6 bg-transparent top-0 left-0 right-0 z-20 fixed">
+    <header
+      className={`flex items-center justify-between px-6 lg:px-20 py-6 top-0 left-0 right-0 z-20 fixed transition-all duration-300 ${
+        scrolled ? "bg-white shadow-md" : "bg-transparent"
+      }`}
+    >
       <div className="flex items-center">
         <img src="/icons/faddedsmsLogo.svg" alt="FaddedSMS Logo" className="h-8 w-auto" />
       </div>
