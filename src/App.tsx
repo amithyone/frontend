@@ -4,8 +4,8 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { VtuProvider } from './contexts/VtuContext';
 import { BrandingProvider } from './contexts/BrandingContext';
 import LandingPage from './components/LandingPage';
-import Login from './components/Login';
-import Register from './components/Register';
+import Login from './components/auth/Login';
+import Register from './components/auth/Register';
 import Dashboard from './components/Dashboard';
 import ServicesTest from './components/ServicesTest';
 import AuthCallback from './components/AuthCallback';
@@ -19,6 +19,7 @@ import FiveSimPage from './components/FiveSimPage';
 import TigerPage from './components/TigerPage';
 import TextVerifiedPage from './components/TextVerifiedPage';
 import './index.css';
+import ResetPassword from './components/auth/ResetPassword';
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
                 <Route path="/dashboard" element={
                   <ProtectedRoute>
