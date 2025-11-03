@@ -20,6 +20,7 @@ import TigerPage from './components/TigerPage';
 import TextVerifiedPage from './components/TextVerifiedPage';
 import './index.css';
 import ResetPassword from './components/auth/ResetPassword';
+import MaintenancePage from './components/Maintainance';
 
 function App() {
   return (
@@ -30,11 +31,16 @@ function App() {
             <Router>
             <div className="min-h-screen bg-gradient-to-br from-oxford-blue via-oxford-blue-light to-oxford-blue-dark">
               <Routes>
-                <Route path="/" element={<LandingPage />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/auth/callback" element={<AuthCallback />} />
+                <Route path="/" element={<MaintenancePage />} />
+                {/* <Route path="/" element={<LandingPage />} /> */}
+                <Route path="/login" element={<MaintenancePage />} />
+                {/* <Route path="/login" element={<Login />} /> */}
+                <Route path="/register" element={<MaintenancePage />} />
+                {/* <Route path="/register" element={<Register />} /> */}
+                <Route path="/reset-password" element={<MaintenancePage />} />
+                {/* <Route path="/reset-password" element={<ResetPassword />} /> */}
+                <Route path="/auth/callback" element={<MaintenancePage />} />
+                {/* <Route path="/auth/callback" element={<AuthCallback />} /> */}
                 <Route path="/dashboard" element={
                   <ProtectedRoute>
                     <Dashboard />
