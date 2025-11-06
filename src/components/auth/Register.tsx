@@ -7,13 +7,11 @@ import { AuthLayout } from "./AuthLayout";
 
 import registerBg from "/images/register-bg.png";
 
-type Tab = "contact" | "verify";
-
 export default function Register() {
     const { register: authRegister } = useAuth();
     const navigate = useNavigate();
 
-    const [activeTab, setActiveTab] = useState<Tab>("contact");
+    const [showOtpScreen, setShowOtpScreen] = useState(false);
     const [otp, setOtp] = useState<string[]>(["", "", "", "", "", ""]);
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
@@ -62,7 +60,7 @@ export default function Register() {
         }
 
         toast.success("OTP sent to your email!");
-        setActiveTab("verify");
+        setShowOtpScreen(true);
 
         setIsLoading(true);
         try {
@@ -160,40 +158,11 @@ export default function Register() {
                         className="mx-auto mb-4 w-34 h-auto"
                     />
                     <h2 className="text-3xl font-bold text-gray-900">
-                        {activeTab === "contact" ? "Create an account" : "Enter OTP"}
+                        {showOtpScreen ? "Enter OTP" : "Create an account"}
                     </h2>
                 </div>
 
-                <div className="flex border-b border-gray-300 mb-6">
-                    <button
-                        type="button"
-                        onClick={() => setActiveTab("contact")}
-                        className={`flex-1 py-3 text-sm font-medium transition-colors relative ${activeTab === "contact"
-                                ? "text-teal-600"
-                                : "text-gray-500 hover:text-gray-700"
-                            }`}
-                    >
-                        Contact
-                        {activeTab === "contact" && (
-                            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-600" />
-                        )}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setActiveTab("verify")}
-                        className={`flex-1 py-3 text-sm font-medium transition-colors relative ${activeTab === "verify"
-                                ? "text-teal-600"
-                                : "text-gray-500 hover:text-gray-700"
-                            }`}
-                    >
-                        Verify Mail
-                        {activeTab === "verify" && (
-                            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-600" />
-                        )}
-                    </button>
-                </div>
-
-                {activeTab === "contact" && (
+                {!showOtpScreen ? (
                     <form onSubmit={handleSubmitContact} className="space-y-5">
                         <div className="grid grid-cols-2 gap-4">
                             {["firstName", "lastName"].map((field) => (
@@ -304,9 +273,7 @@ export default function Register() {
                             Continue with Google
                         </button>
                     </form>
-                )}
-
-                {activeTab === "verify" && (
+                ) : (
                     <form onSubmit={handleVerifyOtp} className="space-y-6">
                         <p className="text-center text-gray-600 text-sm">
                             Enter the 6-digit code sent to your email address to verify your account

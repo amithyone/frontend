@@ -37,8 +37,8 @@ function App() {
                 {/* <Route path="/login" element={<Login />} /> */}
                 <Route path="/register" element={<MaintenancePage />} />
                 {/* <Route path="/register" element={<Register />} /> */}
-                <Route path="/reset-password" element={<MaintenancePage />} />
-                {/* <Route path="/reset-password" element={<ResetPassword />} /> */}
+                {/* <Route path="/reset-password" element={<MaintenancePage />} /> */}
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/auth/callback" element={<MaintenancePage />} />
                 {/* <Route path="/auth/callback" element={<AuthCallback />} /> */}
                 <Route path="/dashboard" element={
